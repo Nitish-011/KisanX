@@ -32,15 +32,8 @@ class CropDiseaseModel:
             else "cpu"
         )
 
-        self.is_mock = not MODEL_PATH.exists()
-
-        if self.is_mock:
-            print("=" * 60)
-            print(f"[WARNING] MobileNetV3 weights not found at:\n{MODEL_PATH}")
-            print("Running in simulated inference mode for local development/testing.")
-            print("=" * 60)
-            self.model = None
-            return
+        if not MODEL_PATH.exists():
+            raise RuntimeError(f"MobileNetV3 weights not found at: {MODEL_PATH}")
 
         print("=" * 60)
         print("Loading KisanX MobileNetV3 disease model...")
@@ -111,18 +104,7 @@ class CropDiseaseModel:
         image: Image.Image,
     ) -> Dict[str, Any]:
 
-        if getattr(self, "is_mock", False):
-            return {
-                "disease": "Healthy",
-                "confidence": 0.942,
-                "class_probabilities": {
-                    "Healthy": 0.942,
-                    "Mosaic": 0.021,
-                    "RedRot": 0.015,
-                    "Rust": 0.012,
-                    "Yellow": 0.010,
-                },
-            }
+
 
         image = image.convert("RGB")
 

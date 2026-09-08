@@ -23,8 +23,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import CropIntuitionCard from "@/components/market/crop_intuition_card";
 import SellShopChat from "@/components/market/sell_shop_chat";
+import { KisanXAPI } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 
 interface Negotiation {
   id: string;
@@ -84,6 +85,14 @@ export default function MarketplacePage() {
   // Sell Shop Instagram-Style DM Modal State
   const [showSellShop, setShowSellShop] = useState(false);
   const [sellShopListingId, setSellShopListingId] = useState<string | null>(null);
+
+  // UX Polish: Custom Toast Notifications
+  const [toast, setToast] = useState<{message: string, type: 'error' | 'success'} | null>(null);
+  
+  function showToast(message: string, type: 'error' | 'success' = 'error') {
+    setToast({message, type});
+    setTimeout(() => setToast(null), 4000);
+  }
 
   // GPS Proximity State
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -203,7 +212,7 @@ export default function MarketplacePage() {
       mr: "प्रमाणित शेतमाल खरेदी रडार",
     },
     buyerRadarDesc: {
-      en: "Procure directly from farmers with verified YOLO health index and tamper-proof negotiations.",
+      en: "Procure directly from farmers with verified YOLO health index and authenticated negotiation history.",
       hi: "YOLO स्वास्थ्य सूचकांक से प्रमाणित फसलें सीधे किसानों से खरीदें।",
       mr: "YOLO आरोग्य निर्देशांकाने प्रमाणित शेतमाल थेट शेतकऱ्यांकडून खरेदी करा.",
     },
@@ -287,14 +296,10 @@ export default function MarketplacePage() {
       setLoading(true);
 
       // 1. Farmer Lots (strictly isolated to current farmer)
-      const resFarmer = await fetch(`${API_URL}/api/marketplace/farmer-listings`);
-      if (resFarmer.ok) {
-        const dFarmer = await resFarmer.json();
-        setFarmerListings(dFarmer.listings || []);
-      }
+      const dFarmer = await KisanXAPI.getFarmerListings();
+      setFarmerListings(dFarmer.listings || []);
 
       // 2. Buyer Radar (public marketplace)
-      let buyerUrl = `${API_URL}/api/marketplace/listings`;
       const params = new URLSearchParams();
       if (cropFilter !== "All") params.append("crop", cropFilter);
       if (userLat !== null && userLng !== null) {
@@ -302,20 +307,13 @@ export default function MarketplacePage() {
         params.append("buyer_lng", userLng.toString());
       }
       if (distanceFilter) params.append("max_distance_km", distanceFilter.toString());
-      if (params.toString()) buyerUrl += `?${params.toString()}`;
 
-      const resBuyer = await fetch(buyerUrl);
-      if (resBuyer.ok) {
-        const dBuyer = await resBuyer.json();
-        setBuyerListings(dBuyer.listings || []);
-      }
+      const dBuyer = await KisanXAPI.getMarketplaceListings(params.toString());
+      setBuyerListings(dBuyer.listings || []);
 
       // 3. Inspector Queue
-      const resInspector = await fetch(`${API_URL}/api/marketplace/inspector-queue`);
-      if (resInspector.ok) {
-        const dInspector = await resInspector.json();
-        setInspectorQueue(dInspector.queue || []);
-      }
+      const dInspector = await KisanXAPI.getInspectorQueue();
+      setInspectorQueue(dInspector.queue || []);
     } catch (err) {
       console.warn("Marketplace data load notice:", err);
     } finally {
@@ -357,7 +355,7 @@ export default function MarketplacePage() {
   // ----------------------------------------------------------
   function handleLocateMe() {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
+        showToast("Geolocation is not supported by your browser.", "error");
       return;
     }
     setGpsLoading(true);
@@ -388,14 +386,17 @@ export default function MarketplacePage() {
 
   async function handleAnalyzeVideo() {
     if (!videoFile) {
-      alert("Please select a video file first.");
+      showToast("Please select a video file first.", "error");
       return;
     }
     const area = parseFloat(farmerAcreage);
     if (isNaN(area) || area <= 0) {
-      alert("Please enter a valid farm acreage.");
+      showToast("Please enter a valid farm acreage.", "error");
       return;
     }
+
+    const lat = userLat !== null ? userLat.toString() : "18.5204";
+    const lng = userLng !== null ? userLng.toString() : "73.8567";
 
     try {
       setAnalyzingVideo(true);
@@ -415,23 +416,13 @@ export default function MarketplacePage() {
       formData.append("village", farmerVillage);
       formData.append("district", farmerDistrict);
       formData.append("variety", farmerVariety);
-      formData.append("latitude", "18.5204");
-      formData.append("longitude", "73.8567");
+      formData.append("latitude", lat);
+      formData.append("longitude", lng);
 
-      const res = await fetch(`${API_URL}/api/marketplace/analyze-harvest`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Video analysis failed.");
-      }
-
-      const data = await res.json();
+      const data = await KisanXAPI.analyzeHarvest(formData);
       setAuditResult(data);
     } catch (err: any) {
-      alert(err.message || "Failed to analyze harvest video.");
+      showToast(err.message || "Failed to analyze harvest video.", "error");
     } finally {
       setAnalyzingVideo(false);
       setAnalysisProgress("");
@@ -443,7 +434,6 @@ export default function MarketplacePage() {
     try {
       setLoading(true);
       const payload = {
-        farmer_name: "Rameshwar Patil (Verified Farmer)",
         farm_name: auditResult.farm_name,
         village: auditResult.village,
         district: auditResult.district,
@@ -461,21 +451,14 @@ export default function MarketplacePage() {
         encryption_fingerprint: auditResult.encryption_fingerprint,
       };
 
-      const res = await fetch(`${API_URL}/api/marketplace/list`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to publish listing.");
-      const published = await res.json();
+      const published = await KisanXAPI.listMarketplace(payload);
 
       setFarmerListings((prev) => [published.listing, ...prev]);
       setAuditResult(null);
       setVideoFile(null);
-      alert(lang === "hi" ? "फसल सफलतापूर्वक मंडी में प्रकाशित हो गई है!" : lang === "mr" ? "शेतमाल बाजार समितीत यशस्वीपणे प्रकाशित झाला आहे!" : "Harvest lot successfully published to APMC Mandi!");
+      showToast(lang === "hi" ? "फसल सफलतापूर्वक मंडी में प्रकाशित हो गई है!" : lang === "mr" ? "शेतमाल बाजार समितीत यशस्वीपणे प्रकाशित झाला आहे!" : "Harvest lot successfully published to APMC Mandi!", "success");
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -487,28 +470,21 @@ export default function MarketplacePage() {
   async function handleInspectorAction(listingId: string, action: "CERTIFY" | "QUARANTINE") {
     try {
       setCertifyingId(listingId);
-      const res = await fetch(`${API_URL}/api/marketplace/certify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listing_id: listingId,
-          officer_name: "Dr. V. K. Deshmukh",
-          officer_id: "FSSAI-AGRI-884",
-          action: action,
-          notes: inspectNotes.trim() || undefined,
-        }),
+      const data = await KisanXAPI.certifyListing({
+        listing_id: listingId,
+        officer_name: "Dr. V. K. Deshmukh",
+        officer_id: "FSSAI-AGRI-884",
+        action: action,
+        notes: inspectNotes.trim() || undefined,
       });
-
-      if (!res.ok) throw new Error("Inspector certification failed.");
-      const data = await res.json();
 
       setInspectorQueue((prev) =>
         prev.map((l) => (l.id === listingId ? data.listing : l))
       );
       setInspectNotes("");
-      alert(data.message);
+      showToast(data.message, "success");
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setCertifyingId(null);
     }
@@ -548,47 +524,8 @@ export default function MarketplacePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* STRICT ROLE PORTAL SWITCHER PILLS */}
-            <div className="flex items-center gap-1 rounded-2xl border border-white/15 bg-black/60 p-1 backdrop-blur-xl">
-              <button
-                type="button"
-                onClick={() => setActiveRole("farmer")}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                  activeRole === "farmer"
-                    ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
-                    : "text-white/60 hover:text-white"
-                }`}
-              >
-                <Video size={13} />
-                <span>{t.roleFarmer[lang]}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveRole("buyer")}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                  activeRole === "buyer"
-                    ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
-                    : "text-white/60 hover:text-white"
-                }`}
-              >
-                <Building size={13} />
-                <span>{t.roleBuyer[lang]}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveRole("inspector")}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                  activeRole === "inspector"
-                    ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
-                    : "text-white/60 hover:text-white"
-                }`}
-              >
-                <ShieldCheck size={13} />
-                <span>{t.roleInspector[lang]}</span>
-              </button>
-            </div>
+            {/* STRICT ROLE PORTAL SWITCHER PILLS REMOVED */}
+            {/* User role is now strictly determined by the Supabase session */}
 
             {/* INSTANT MULTILINGUAL SELECTOR (EN, HI, MR) */}
             <div className="flex items-center rounded-2xl border border-white/15 bg-black/60 p-1 backdrop-blur-xl text-xs font-bold">
@@ -928,6 +865,9 @@ export default function MarketplacePage() {
                       </>
                     )}
                   </button>
+                  <p className="mt-3 text-center text-[10px] leading-relaxed text-white/50">
+                    <span className="font-bold text-amber-500">Notice:</span> AI health scoring and valuation is an estimation tool powered by KisanX Neural Engine. It does not replace official laboratory testing or physical inspection by certified Agricultural Quality Officers.
+                  </p>
                 </div>
               </div>
 
@@ -1186,6 +1126,18 @@ export default function MarketplacePage() {
               onClose={() => setShowSellShop(false)}
             />
           </div>
+        </div>
+      )}
+
+      {/* GLOBAL TOAST NOTIFICATION */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 flex max-w-sm animate-in slide-in-from-bottom-5 items-center gap-3 rounded-2xl p-4 pr-6 shadow-2xl backdrop-blur-xl border ${
+          toast.type === 'success' 
+            ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-100' 
+            : 'bg-rose-950/90 border-rose-500/50 text-rose-100'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle2 className="text-emerald-400 shrink-0" size={24} /> : <AlertTriangle className="text-rose-400 shrink-0" size={24} />}
+          <p className="text-sm font-medium">{toast.message}</p>
         </div>
       )}
     </main>

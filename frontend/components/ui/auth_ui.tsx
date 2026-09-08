@@ -51,12 +51,6 @@ const roles: {
     description: "Discover nearby certified lots on GPS radar and submit direct trade offers.",
     icon: "🏭",
   },
-  {
-    value: "OFFICER",
-    title: "Food Safety & Quality Inspector",
-    description: "Review YOLO defect telemetry and issue official Grade A phytosanitary passes.",
-    icon: "🛡️",
-  },
 ];
 
 export function AuthUI({ initialMessage, onSignIn, onSignUp, onGoogleSignIn, onDemoSignIn }: AuthUIProps) {

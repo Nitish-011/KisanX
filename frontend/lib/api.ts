@@ -2,6 +2,10 @@ import { createClient } from "./supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_KISANX_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_KISANX_API_URL && !process.env.NEXT_PUBLIC_API_URL) {
+  console.warn("⚠️ [KisanX-Config] NEXT_PUBLIC_API_URL is missing. Falling back to default: http://127.0.0.1:8000");
+}
+
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const supabase = createClient();
   const { data } = await supabase.auth.getSession();
@@ -82,7 +86,7 @@ export const KisanXAPI = {
   
   // Marketplace (Legacy/Extended)
   listMarketplace: (payload: any) => apiFetch<any>("/api/marketplace/list", { method: "POST", body: JSON.stringify(payload) }),
-  getMarketplaceListings: () => apiFetch<any>("/api/marketplace/listings"),
+  getMarketplaceListings: (params?: string) => apiFetch<any>(`/api/marketplace/listings${params ? `?${params}` : ""}`),
   getFarmerListings: () => apiFetch<any>("/api/marketplace/farmer-listings"),
   getInspectorQueue: () => apiFetch<any>("/api/marketplace/inspector-queue"),
   getSellShopThreads: () => apiFetch<any>("/api/marketplace/sell-shop/threads"),

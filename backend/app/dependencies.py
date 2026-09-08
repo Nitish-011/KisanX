@@ -22,6 +22,8 @@ from app.services.supabase_service import get_server_supabase
 
 class AuthenticatedUser(BaseModel):
     id: str
+    role: Optional[str] = None
+    name: Optional[str] = None
 
 
 # ============================================================
@@ -95,6 +97,10 @@ def get_authenticated_user(
             detail="Unable to authenticate user.",
         )
 
+    user_metadata = auth_response.user.user_metadata or {}
+
     return AuthenticatedUser(
         id=str(auth_response.user.id),
+        role=user_metadata.get("role", "farmer"),
+        name=user_metadata.get("full_name", "Unknown User"),
     )

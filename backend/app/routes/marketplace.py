@@ -17,7 +17,8 @@ from pydantic import BaseModel
 
 from app.services.ollama_service import ollama_service
 from app.services.supabase_service import get_server_supabase
-from app.routes.farms import get_optional_authenticated_user, AuthenticatedUser
+from app.dependencies import get_authenticated_user, AuthenticatedUser
+from app.schemas.marketplace import OrderCreate
 
 router = APIRouter(
     prefix="/api/marketplace",
@@ -47,112 +48,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 # IN-MEMORY LISTINGS REPOSITORY WITH PRE-SEEDED VERIFIED HARVESTS
 # ============================================================
 
-MARKETPLACE_LISTINGS: List[Dict[str, Any]] = [
-    {
-        "id": "list-001",
-        "farmer_id": "demo-farmer-01",
-        "farmer_name": "Rameshwar Patil",
-        "farm_name": "Shivaji Krishi Estate",
-        "village": "Baramati",
-        "district": "Pune, Maharashtra",
-        "latitude": 18.1528,
-        "longitude": 74.5775,
-        "crop_name": "Sugarcane",
-        "variety": "Co 86032 (Nira)",
-        "farm_area_acres": 8.5,
-        "health_percentage": 94.2,
-        "quality_grade": "Grade A (Export Ready)",
-        "estimated_weight_quintals": 2850.0,
-        "price_per_quintal": 365,
-        "total_valuation": 1040250,
-        "media_type": "video",
-        "video_preview": "Verified 4K Drone Canopy Scan",
-        "yolo_detection_summary": "94.2% healthy foliage coverage. Zero red rot or stalk borer lesions detected.",
-        "gemma_appraisal_summary": "High sucrose yield potential. Stalk internode elongation is optimal with dense canopy vigor. Approved for premium sugar mill crushing.",
-        "inspector_status": "CERTIFIED_GRADE_A",
-        "certified_by": "Dr. V. K. Deshmukh (FSSAI Agri-Inspector ID #MH-884)",
-        "certification_timestamp": "2026-09-08 14:30 IST",
-        "created_at": "2026-09-08T10:15:00Z",
-        "encryption_fingerprint": "0x8f19e4c3a2b75019d44f",
-        "negotiations": [
-            {
-                "id": "neg-101",
-                "sender_role": "buyer",
-                "sender_name": "Shree Chhatrapati Sugar Mill",
-                "proposed_price": 360,
-                "message": "We can procure the full 2,850 quintals lot with direct mill logistics pickup.",
-                "timestamp": "2026-09-08 16:45 IST",
-                "status": "COUNTER_OFFER",
-            }
-        ],
-    },
-    {
-        "id": "list-002",
-        "farmer_id": "demo-farmer-02",
-        "farmer_name": "Suresh Bhai Patel",
-        "farm_name": "Sardar Patel Cotton Fields",
-        "village": "Morbi",
-        "district": "Rajkot, Gujarat",
-        "latitude": 22.8125,
-        "longitude": 70.8385,
-        "crop_name": "Cotton",
-        "variety": "Bt Hybrid Shankar-6",
-        "farm_area_acres": 12.0,
-        "health_percentage": 91.5,
-        "quality_grade": "Grade A (Long Staple Premium)",
-        "estimated_weight_quintals": 115.0,
-        "price_per_quintal": 7450,
-        "total_valuation": 856750,
-        "media_type": "video",
-        "video_preview": "Verified Video Scan (YOLOv11 Instance Seg)",
-        "yolo_detection_summary": "91.5% clear foliar coverage. Minimal non-pathogenic tip scorch under 2%.",
-        "gemma_appraisal_summary": "Excellent square retention and boll maturation index. Fiber length is estimated above 29mm with low micronaire trash content.",
-        "inspector_status": "CERTIFIED_GRADE_A",
-        "certified_by": "K. N. Vaghela (Cotton Board Auditor #GJ-412)",
-        "certification_timestamp": "2026-09-08 15:10 IST",
-        "created_at": "2026-09-08T11:20:00Z",
-        "encryption_fingerprint": "0x3e7b1a9f04c6d88219ae",
-        "negotiations": [
-            {
-                "id": "neg-102",
-                "sender_role": "buyer",
-                "sender_name": "Vardhman Textile Mills Ltd",
-                "proposed_price": 7350,
-                "message": "Ready to book 100 quintals subject to fiber moisture check at mandi gate.",
-                "timestamp": "2026-09-08 17:15 IST",
-                "status": "NEGOTIATING",
-            }
-        ],
-    },
-    {
-        "id": "list-003",
-        "farmer_id": "demo-farmer-03",
-        "farmer_name": "Balwinder Singh",
-        "farm_name": "Guru Nanak Organic Farm",
-        "village": "Bathinda",
-        "district": "Punjab",
-        "latitude": 30.2110,
-        "longitude": 74.9455,
-        "crop_name": "Cotton",
-        "variety": "RCH 659 BG-II",
-        "farm_area_acres": 6.0,
-        "health_percentage": 78.4,
-        "quality_grade": "Grade B (Standard Mandi)",
-        "estimated_weight_quintals": 52.0,
-        "price_per_quintal": 6950,
-        "total_valuation": 361400,
-        "media_type": "video",
-        "video_preview": "Verified Mobile Video Inspection",
-        "yolo_detection_summary": "78.4% healthy tissue. Minor bacterial blight angular lesions identified on lower canopy.",
-        "gemma_appraisal_summary": "Moderate foliar infection handled via early sanitation. Good harvest potential for domestic spinning count.",
-        "inspector_status": "PENDING_INSPECTION",
-        "certified_by": None,
-        "certification_timestamp": None,
-        "created_at": "2026-09-08T12:00:00Z",
-        "encryption_fingerprint": "0x5d90c21fe4781ba04312",
-        "negotiations": [],
-    },
-]
+# In-memory listings removed. Relying strictly on Supabase.
 
 
 # ============================================================
@@ -210,19 +106,48 @@ async def analyze_harvest(
             detail=f"Unsupported file format '{file_ext}'. Permitted: mp4, webm, mov, jpg, png, webp.",
         )
 
+    ALLOWED_CONTENT_TYPES = {
+        "video/mp4", "video/webm", "video/x-msvideo", "video/quicktime", "video/x-matroska",
+        "image/jpeg", "image/png", "image/webp"
+    }
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported content type '{file.content_type}'. Must be a valid video or image.",
+        )
+
     is_video = file_ext in {".mp4", ".webm", ".avi", ".mov", ".mkv"}
 
     sampled_frames: List[Image.Image] = []
 
     if is_video:
+        if cv2 is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Video processing is unavailable. Please upload an image instead or contact support.",
+            )
+            
         with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
 
         try:
             cap = cv2.VideoCapture(tmp_path)
+            if not cap.isOpened():
+                raise HTTPException(status_code=400, detail="Corrupt or unreadable video file.")
+                
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
+            
+            if fps <= 0:
+                fps = 24.0
+                
+            duration_sec = total_frames / fps
+            if duration_sec > 120.0:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Video too long ({duration_sec:.1f}s). Max duration is 120s."
+                )
 
             # Sample between 6 to 12 frames evenly distributed across the video
             sample_count = min(max(int(total_frames / (fps * 0.5)), 6), 12)
@@ -246,6 +171,14 @@ async def analyze_harvest(
         # Single image upload treated as single-frame inspection
         import io
         img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+        width, height = img.size
+        
+        if width > 8192 or height > 8192:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image dimensions ({width}x{height}) exceed maximum allowed 8192x8192."
+            )
+            
         sampled_frames.append(img)
 
     if not sampled_frames:
@@ -382,7 +315,7 @@ Generate the lot appraisal text.
 # ============================================================
 
 class ListingCreateRequest(BaseModel):
-    farmer_name: str
+    farmer_name: Optional[str] = None
     farm_name: str
     village: str
     district: str
@@ -395,28 +328,38 @@ class ListingCreateRequest(BaseModel):
     price_per_quintal: int
     total_valuation: int
     gemma_appraisal_summary: str
-    latitude: Optional[float] = 18.5204
-    longitude: Optional[float] = 73.8567
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     encryption_fingerprint: Optional[str] = None
 
 
 @router.post("/list", status_code=status.HTTP_201_CREATED)
 def publish_listing(
     payload: ListingCreateRequest,
-    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     listing_id = f"list-{uuid4().hex[:8]}"
     fingerprint = payload.encryption_fingerprint or ("0x" + hashlib.sha256(listing_id.encode()).hexdigest()[:20])
 
+    # Fetch authentic farmer name from profiles table
+    farmer_name = "Unknown Farmer"
+    try:
+        supabase = get_server_supabase()
+        profile_res = supabase.table("profiles").select("full_name").eq("id", user.id).maybe_single().execute()
+        if profile_res.data and profile_res.data.get("full_name"):
+            farmer_name = profile_res.data["full_name"]
+    except Exception as exc:
+        print("[Marketplace] Could not fetch profile for farmer name:", exc)
+
     new_listing = {
         "id": listing_id,
-        "farmer_id": user.id if user else None,
-        "farmer_name": payload.farmer_name.strip(),
+        "farmer_id": user.id,
+        "farmer_name": farmer_name,
         "farm_name": payload.farm_name.strip(),
         "village": payload.village.strip(),
         "district": payload.district.strip(),
-        "latitude": payload.latitude or 18.5204,
-        "longitude": payload.longitude or 73.8567,
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
         "crop_name": payload.crop_name,
         "variety": payload.variety,
         "farm_area_acres": payload.farm_area_acres,
@@ -437,16 +380,20 @@ def publish_listing(
         "negotiations": [],
     }
 
-    # Persist in Supabase database if reachable
+    # Persist in Supabase database
     try:
         supabase = get_server_supabase()
         db_payload = dict(new_listing)
         db_payload.pop("negotiations", None)
-        supabase.table("marketplace_listings").upsert(db_payload).execute()
+        res = supabase.table("marketplace_listings").upsert(db_payload).execute()
+        if not res.data:
+            raise Exception("No data returned from insert")
     except Exception as exc:
-        print("[Marketplace] Supabase persist notice:", exc)
-
-    MARKETPLACE_LISTINGS.insert(0, new_listing)
+        print("[Marketplace] Supabase persist error:", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to persist harvest listing in the database."
+        )
 
     return {
         "success": True,
@@ -485,13 +432,8 @@ def get_listings(
                     rec["negotiations"] = []
                 combined_listings.append(rec)
     except Exception as exc:
-        print("[Marketplace] Supabase fetch fallback to cache:", exc)
-
-    # Merge cached/pre-seeded listings not already present
-    for l in MARKETPLACE_LISTINGS:
-        if l["id"] not in seen_ids:
-            seen_ids.add(l["id"])
-            combined_listings.append(dict(l))
+        print("[Marketplace] Supabase fetch error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to load marketplace listings")
 
     results = []
 
@@ -537,7 +479,7 @@ def get_listings(
 @router.get("/farmer-listings")
 def get_farmer_listings(
     farmer_id: Optional[str] = None,
-    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     """
     Returns ONLY the harvest lots listed by this specific farmer.
@@ -563,15 +505,8 @@ def get_farmer_listings(
                     rec["negotiations"] = []
                 results.append(rec)
     except Exception as exc:
-        print("[Marketplace] Farmer listings Supabase notice:", exc)
-
-    # In-memory listings matching this farmer
-    for l in MARKETPLACE_LISTINGS:
-        if l["id"] not in seen_ids:
-            l_fid = l.get("farmer_id")
-            if l_fid == target_id or (target_id == "demo-farmer-01" and l["id"] == "list-001"):
-                seen_ids.add(l["id"])
-                results.append(dict(l))
+        print("[Marketplace] Farmer listings fetch error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to load farmer listings")
 
     return {
         "success": True,
@@ -588,7 +523,7 @@ def get_farmer_listings(
 @router.get("/inspector-queue")
 def get_inspector_queue(
     status_filter: Optional[str] = None,
-    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     """
     Queue of harvest submissions for ICAR-FSSAI quality inspection and biosecurity audit.
@@ -600,16 +535,13 @@ def get_inspector_queue(
         supabase = get_server_supabase()
         db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
         for rec in db_res.data or []:
-            if rec["id"] not in seen_ids:
-                seen_ids.add(rec["id"])
-                results.append(rec)
-    except Exception:
-        pass
-
-    for l in MARKETPLACE_LISTINGS:
-        if l["id"] not in seen_ids:
-            seen_ids.add(l["id"])
-            results.append(dict(l))
+    try:
+        supabase = get_server_supabase()
+        db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
+        results = db_res.data or []
+    except Exception as exc:
+        print("[Marketplace] Inspector queue fetch error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to load inspector queue")
 
     if status_filter == "PENDING":
         results = [r for r in results if r.get("inspector_status") == "PENDING_INSPECTION"]
@@ -630,7 +562,7 @@ def get_inspector_queue(
 @router.get("/sell-shop/threads")
 def get_sell_shop_threads(
     role: str = "farmer", # "farmer" or "buyer"
-    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     """
     Returns active 1-to-1 Sell Shop conversations with crop lot cards, counterpart details, and bid status.
@@ -639,15 +571,13 @@ def get_sell_shop_threads(
     target_id = (user.id if user and hasattr(user, "id") else None) or ("demo-farmer-01" if role == "farmer" else "demo-buyer-01")
 
     # Combine listings
-    all_lots = list(MARKETPLACE_LISTINGS)
     try:
         supabase = get_server_supabase()
         db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
-        for rec in db_res.data or []:
-            if not any(x["id"] == rec["id"] for x in all_lots):
-                all_lots.append(rec)
-    except Exception:
-        pass
+        all_lots = db_res.data or []
+    except Exception as exc:
+        print("[Marketplace] Sell shop threads error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to load sell shop threads")
 
     for l in all_lots:
         negs = l.get("negotiations") or []
@@ -706,15 +636,13 @@ def get_sell_shop_messages(
     """
     Returns full chronological messages for a specific harvest listing in Sell Shop.
     """
-    listing = next((l for l in MARKETPLACE_LISTINGS if l["id"] == listing_id), None)
-    if not listing:
-        try:
-            supabase = get_server_supabase()
-            res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).maybe_single().execute()
-            if res.data:
-                listing = res.data
-        except Exception:
-            pass
+    try:
+        supabase = get_server_supabase()
+        res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).maybe_single().execute()
+        listing = res.data
+    except Exception as exc:
+        print("[Marketplace] Messages fetch error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to fetch listing")
 
     if not listing:
         raise HTTPException(status_code=404, detail="Crop lot not found.")
@@ -763,18 +691,15 @@ class NegotiationMessageRequest(BaseModel):
 @router.post("/negotiate")
 def send_negotiation_message(
     payload: NegotiationMessageRequest,
-    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
-    listing = next((l for l in MARKETPLACE_LISTINGS if l["id"] == payload.listing_id), None)
-    if not listing:
-        try:
-            supabase = get_server_supabase()
-            res = supabase.table("marketplace_listings").select("*").eq("id", payload.listing_id).maybe_single().execute()
-            if res.data:
-                listing = res.data
-                MARKETPLACE_LISTINGS.append(listing)
-        except Exception:
-            pass
+    try:
+        supabase = get_server_supabase()
+        res = supabase.table("marketplace_listings").select("*").eq("id", payload.listing_id).maybe_single().execute()
+        listing = res.data
+    except Exception as exc:
+        print("[Marketplace] Send negotiation fetch error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to fetch listing")
 
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
@@ -786,8 +711,8 @@ def send_negotiation_message(
         "id": neg_id,
         "listing_id": payload.listing_id,
         "sender_id": user.id if user else None,
-        "sender_role": payload.sender_role,
-        "sender_name": payload.sender_name.strip(),
+        "sender_role": user.role,
+        "sender_name": user.name,
         "proposed_price": payload.proposed_price,
         "message": payload.message.strip(),
         "timestamp": now_str,
@@ -798,9 +723,12 @@ def send_negotiation_message(
     # Persist in Supabase
     try:
         supabase = get_server_supabase()
-        supabase.table("trade_negotiations").insert(message_entry).execute()
+        res = supabase.table("trade_negotiations").insert(message_entry).execute()
+        if not res.data:
+            raise Exception("No data returned from insert")
     except Exception as exc:
-        print("[Marketplace] Trade negotiation Supabase persist notice:", exc)
+        print("[Marketplace] Trade negotiation Supabase persist error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to persist negotiation message")
 
     listing.setdefault("negotiations", []).append(message_entry)
 
@@ -828,18 +756,15 @@ class InspectionCertificationRequest(BaseModel):
 @router.post("/certify")
 def certify_listing(
     payload: InspectionCertificationRequest,
-    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
-    listing = next((l for l in MARKETPLACE_LISTINGS if l["id"] == payload.listing_id), None)
-    if not listing:
-        try:
-            supabase = get_server_supabase()
-            res = supabase.table("marketplace_listings").select("*").eq("id", payload.listing_id).maybe_single().execute()
-            if res.data:
-                listing = res.data
-                MARKETPLACE_LISTINGS.append(listing)
-        except Exception:
-            pass
+    try:
+        supabase = get_server_supabase()
+        res = supabase.table("marketplace_listings").select("*").eq("id", payload.listing_id).maybe_single().execute()
+        listing = res.data
+    except Exception as exc:
+        print("[Marketplace] Certify fetch error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to fetch listing")
 
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
@@ -886,17 +811,95 @@ def certify_listing(
     # Persist update in Supabase
     try:
         supabase = get_server_supabase()
-        supabase.table("marketplace_listings").update({
+        res = supabase.table("marketplace_listings").update({
             "inspector_status": listing["inspector_status"],
             "certified_by": listing["certified_by"],
             "certification_timestamp": listing["certification_timestamp"],
             "inspector_notes": listing["inspector_notes"],
         }).eq("id", listing["id"]).execute()
+        if not res.data:
+            raise Exception("No data returned from update")
     except Exception as exc:
-        print("[Marketplace] Certification update notice:", exc)
+        print("[Marketplace] Certification update error:", exc)
+        raise HTTPException(status_code=500, detail="Failed to persist certification status")
 
     return {
         "success": True,
         "message": status_msg,
         "listing": listing,
+    }
+
+
+# ============================================================
+# POST /api/marketplace/orders — Place Order
+# ============================================================
+
+@router.post("/orders", status_code=201)
+def create_order(
+    payload: OrderCreate,
+    user: AuthenticatedUser = Depends(get_authenticated_user),
+):
+    """
+    Place an order. Stub — no payment processing yet.
+    Just records the order intent.
+    """
+
+    supabase = get_server_supabase()
+
+    # Get listing price
+    listing_response = (
+        supabase
+        .table("marketplace_listings")
+        .select("price_per_quintal, status")
+        .eq("id", payload.listing_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not listing_response.data:
+        raise HTTPException(
+            status_code=404,
+            detail="Listing not found.",
+        )
+
+    listing = listing_response.data[0]
+
+    if listing.get("status") != "ACTIVE":
+        raise HTTPException(
+            status_code=400,
+            detail="This listing is no longer active.",
+        )
+
+    total_price = listing["price_per_quintal"] * payload.quantity
+
+    row = {
+        "order_type": payload.order_type,
+        "buyer_id": user.id,
+        "listing_id": payload.listing_id,
+        "quantity": payload.quantity,
+        "total_price": total_price,
+        "status": "pending",
+        "payment_status": "unpaid",
+    }
+
+    try:
+        response = (
+            supabase
+            .table("orders")
+            .insert(row)
+            .execute()
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create order: {str(exc)}",
+        )
+
+    return {
+        "success": True,
+        "order": (response.data or [{}])[0],
+        "message": (
+            "Order placed. Payment integration "
+            "coming soon."
+        ),
     }

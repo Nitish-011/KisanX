@@ -126,9 +126,9 @@ export default function SellShopChat({
       mr: "पाठवा",
     },
     encryptedTag: {
-      en: "256-bit Encrypted Trade Channel",
-      hi: "256-बिट एन्क्रिप्टेड व्यापार चैनल",
-      mr: "256-बिट सुरक्षित व्यवहार चॅनेल",
+      en: "Authenticated Negotiation History",
+      hi: "प्रमाणित वार्तालाप इतिहास",
+      mr: "प्रमाणित संवाद इतिहास",
     },
     lotDetails: {
       en: "Lot Details",
@@ -393,7 +393,7 @@ export default function SellShopChat({
               {/* MESSAGES TIMELINE */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 max-h-[380px]">
                 {loadingMessages ? (
-                  <div className="py-12 text-center text-xs text-white/40">Loading encrypted messages...</div>
+                  <div className="py-12 text-center text-xs text-white/40">Loading authenticated messages...</div>
                 ) : messages.length === 0 ? (
                   <div className="py-12 text-center text-xs text-white/40">
                     Start the negotiation by proposing a price or sending a message.

@@ -1,7 +1,8 @@
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 from app.services.supabase_service import get_server_supabase
+from app.dependencies import get_authenticated_user, AuthenticatedUser
 
 router = APIRouter(
     prefix="/api/auth",
@@ -78,17 +79,34 @@ def register_user(payload: RegisterRequest):
         ) from exc
 
 @router.post("/profile", status_code=status.HTTP_200_OK)
-def sync_user_profile(payload: ProfileSyncRequest):
+def sync_user_profile(
+    payload: ProfileSyncRequest,
+    user: AuthenticatedUser = Depends(get_authenticated_user)
+):
     """
     Guarantees user profile creation/synchronization using the backend
     service role key, bypassing any client-side RLS policy restriction.
+    Requires authentication to prevent arbitrary profile changes.
     """
+    if payload.id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only synchronize your own profile."
+        )
+
+    requested_role = payload.role.upper()
+    if requested_role == "OFFICER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot set role to OFFICER via public profile synchronization."
+        )
+
     supabase = get_server_supabase()
     try:
         profile_data = {
             "id": payload.id,
             "full_name": payload.full_name,
-            "role": payload.role.upper(),
+            "role": requested_role,
         }
         res = supabase.table("profiles").upsert(profile_data).execute()
 

@@ -32,9 +32,7 @@ from app.routes.risk_scores import (
 from app.routes.hotspots import (
     router as hotspots_router,
 )
-from app.routes.market_listings import (
-    router as market_listings_router,
-)
+
 from app.routes.input_market import (
     router as input_market_router,
 )
@@ -96,7 +94,7 @@ app.include_router(diagnoses_router)
 app.include_router(trap_counts_router)
 app.include_router(risk_scores_router)
 app.include_router(hotspots_router)
-app.include_router(market_listings_router)
+
 app.include_router(input_market_router)
 app.include_router(agronomist_router)
 app.include_router(feedback_router)
@@ -117,18 +115,31 @@ def root():
 
 
 # ============================================================
-# HEALTH CHECK
+# HEALTH & LIVENESS CHECKS
 # ============================================================
+
+@app.get("/live")
+def live_check():
+    return {"status": "ok"}
+
+@app.get("/ready")
+def ready_check():
+    # Verify models exist
+    cotton_ready = settings.cotton_model_path_resolved.exists()
+    sugarcane_ready = settings.sugarcane_model_path.exists()
+    
+    ready = cotton_ready and sugarcane_ready
+    
+    return {
+        "status": "ready" if ready else "not_ready",
+        "cotton_model": "ok" if cotton_ready else "missing",
+        "sugarcane_model": "ok" if sugarcane_ready else "missing"
+    }
 
 @app.get("/health")
 def health_check():
-
     return {
         "status": "ok",
         "service": "kisanx-api",
-        "version": "1.0.0",
-        "ollama": {
-            "base_url": settings.ollama_base_url,
-            "model": settings.ollama_model,
-        },
+        "version": "1.0.0"
     }

@@ -29,9 +29,7 @@ class Settings(BaseSettings):
     # ---------------------------------------------------------
     model_dir: str = "ml/models"
     sugarcane_model_file: str = "mobilenet_v3_large_best.pth"
-    cotton_model_path: str = (
-        "frontend/ml/cotton/runs/yolo26n_seg_clean/weights/best.pt"
-    )
+    cotton_model_path: str = "ml/models/cotton_best.pt"
 
     # ---------------------------------------------------------
     # CORS (comma-separated origins)

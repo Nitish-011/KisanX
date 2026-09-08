@@ -535,10 +535,16 @@ def get_inspector_queue(
         supabase = get_server_supabase()
         db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
         for rec in db_res.data or []:
-    try:
-        supabase = get_server_supabase()
-        db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
-        results = db_res.data or []
+            if rec.get("inspector_status") != "CERTIFIED":
+                rec_id = rec.get("id")
+                if rec_id and rec_id not in seen_ids:
+                    seen_ids.add(rec_id)
+                    try:
+                        neg_res = supabase.table("trade_negotiations").select("*").eq("listing_id", rec_id).order("created_at", desc=False).execute()
+                        rec["negotiations"] = neg_res.data or []
+                    except Exception:
+                        rec["negotiations"] = []
+                    results.append(rec)
     except Exception as exc:
         print("[Marketplace] Inspector queue fetch error:", exc)
         raise HTTPException(status_code=500, detail="Failed to load inspector queue")

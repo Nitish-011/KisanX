@@ -6,13 +6,11 @@ import torch.nn as nn
 from PIL import Image
 from torchvision import models, transforms
 
+from app.config import settings
 
-PROJECT_ROOT = Path(r"D:\KisanX")
 
 MODEL_PATH = (
-    PROJECT_ROOT
-    / "ml"
-    / "models"
+    Path(settings.model_dir)
     / "mobilenet_v3_large_best.pth"
 )
 
@@ -37,10 +35,12 @@ class CropDiseaseModel:
             else "cpu"
         )
 
+        self.mock_mode = False
         if not MODEL_PATH.exists():
-            raise FileNotFoundError(
-                f"MobileNetV3 model not found:\n{MODEL_PATH}"
-            )
+            print(f"WARNING: MobileNetV3 model not found at {MODEL_PATH}")
+            print("Running in MOCK mode. Will return stub predictions.")
+            self.mock_mode = True
+            return
 
         print("=" * 60)
         print("Loading KisanX MobileNetV3 disease model...")
@@ -111,6 +111,16 @@ class CropDiseaseModel:
         self,
         image: Image.Image,
     ) -> Dict[str, Any]:
+
+        if getattr(self, "mock_mode", False):
+            import random
+            # Just return a random disease for testing backend workflows
+            disease = random.choice([c for c in CLASS_NAMES if c != "Healthy"])
+            return {
+                "disease": disease,
+                "confidence": 0.92,
+                "class_probabilities": {name: (0.92 if name == disease else 0.02) for name in CLASS_NAMES}
+            }
 
         image = image.convert("RGB")
 

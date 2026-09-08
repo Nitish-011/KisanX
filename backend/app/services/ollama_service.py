@@ -80,11 +80,14 @@ class OllamaService:
         system_prompt: str,
         user_prompt: str,
     ) -> str:
-        return await self._request(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema=None,
-        )
+        try:
+            return await self._request(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                schema=None,
+            )
+        except httpx.RequestError:
+            return "Local AI service is currently unavailable. Please ensure Ollama is running."
 
     async def generate_json(
         self,
@@ -93,11 +96,16 @@ class OllamaService:
         schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
 
-        content = await self._request(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema=schema,
-        )
+        try:
+            content = await self._request(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                schema=schema,
+            )
+        except httpx.RequestError as exc:
+            return {
+                "error": f"Failed to connect to Local AI. Please ensure Ollama is running. ({str(exc)})"
+            }
 
         try:
 
@@ -131,11 +139,16 @@ class OllamaService:
             + "Generate the response again as valid JSON only."
         )
 
-        retry_content = await self._request(
-            system_prompt=retry_system_prompt,
-            user_prompt=retry_user_prompt,
-            schema=schema,
-        )
+        try:
+            retry_content = await self._request(
+                system_prompt=retry_system_prompt,
+                user_prompt=retry_user_prompt,
+                schema=schema,
+            )
+        except httpx.RequestError as exc:
+            return {
+                "error": f"Failed to connect to Local AI during retry. Please ensure Ollama is running. ({str(exc)})"
+            }
 
         try:
 

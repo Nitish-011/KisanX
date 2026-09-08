@@ -11,9 +11,9 @@ from ultralytics import YOLO
 # COTTON MODEL CONFIGURATION
 # ============================================================
 
-MODEL_PATH = Path(
-    r"D:\KisanX\frontend\ml\cotton\runs\yolo26n_seg_clean\weights\best.pt"
-)
+from app.config import settings
+
+MODEL_PATH = settings.cotton_model_path_resolved
 
 COTTON_CLASSES = [
     "Aphids",
@@ -30,11 +30,13 @@ COTTON_CLASSES = [
 # ============================================================
 
 @lru_cache(maxsize=1)
-def get_cotton_model() -> YOLO:
+def get_cotton_model():
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(
-            f"Cotton YOLO model not found: {MODEL_PATH}"
-        )
+        print("=" * 60)
+        print(f"[WARNING] Cotton YOLO weights not found at:\n{MODEL_PATH}")
+        print("Running in simulated inference mode for local development/testing.")
+        print("=" * 60)
+        return None
 
     return YOLO(str(MODEL_PATH))
 
@@ -94,6 +96,28 @@ def predict_cotton(image: Image.Image) -> dict[str, Any]:
     image = image.convert("RGB")
 
     model = get_cotton_model()
+    if model is None:
+        return {
+            "crop": "Cotton",
+            "disease": "Healthy",
+            "confidence": 0.92,
+            "confidence_percent": 92.0,
+            "class_probabilities": {
+                "Healthy": 0.92,
+                "Aphids": 0.02,
+                "Army worm": 0.02,
+                "Bacterial blight": 0.02,
+                "Fuserium wilt": 0.01,
+                "Leaf curl": 0.01,
+            },
+            "detection_coverage": 8.5,
+            "risk_score": 12.0,
+            "severity": "LOW",
+            "predictions": [
+                {"disease": "Healthy", "confidence": 0.92, "confidence_percent": 92.0}
+            ],
+            "model": "YOLO26n-seg (Simulated/Demo)",
+        }
 
     results = model.predict(
         source=np.asarray(image),

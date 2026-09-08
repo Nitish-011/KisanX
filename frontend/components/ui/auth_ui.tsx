@@ -21,6 +21,7 @@ type AuthMode = "signin" | "signup";
 type AuthRole = "FARMER" | "BUYER" | "OFFICER";
 
 interface AuthUIProps {
+  initialMessage?: string | null;
   onSignIn?: (email: string, password: string) => Promise<void> | void;
   onSignUp?: (
     email: string,
@@ -58,7 +59,7 @@ const roles: {
   },
 ];
 
-export function AuthUI({ onSignIn, onSignUp, onGoogleSignIn, onDemoSignIn }: AuthUIProps) {
+export function AuthUI({ initialMessage, onSignIn, onSignUp, onGoogleSignIn, onDemoSignIn }: AuthUIProps) {
   const [mode, setMode] = React.useState<AuthMode>("signin");
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -68,8 +69,12 @@ export function AuthUI({ onSignIn, onSignUp, onGoogleSignIn, onDemoSignIn }: Aut
   const [loading, setLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [demoLoadingRole, setDemoLoadingRole] = React.useState<AuthRole | null>(null);
-  const [message, setMessage] = React.useState("");
+  const [message, setMessage] = React.useState(initialMessage || "");
   const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    if (initialMessage) setMessage(initialMessage);
+  }, [initialMessage]);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

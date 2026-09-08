@@ -245,7 +245,7 @@ export default async function DashboardPage() {
 
           {/* 3. FIELD RISK */}
           <Link
-            href="/dashboard/scan"
+            href="/dashboard/risk"
             className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 transition-all duration-300 hover:border-teal-500/50 hover:bg-teal-950/20 hover:shadow-[0_0_35px_rgba(20,184,166,0.15)]"
           >
             <div className="flex items-start justify-between">
@@ -257,7 +257,7 @@ export default async function DashboardPage() {
                   Field Risk Advisory
                 </h3>
                 <p className="mt-1.5 text-xs text-white/55 leading-relaxed">
-                  Predict pathogen progression and environmental spread risks.
+                  5-factor epidemiological pathogen progression & vulnerability.
                 </p>
               </div>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30 group-hover:scale-110 transition">
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className="mt-6 flex items-center gap-1 text-xs font-semibold text-teal-400 group-hover:translate-x-1 transition">
-              Review Threats <ArrowUpRight size={14} />
+              View Radar <ArrowUpRight size={14} />
             </div>
           </Link>
 
@@ -294,6 +294,66 @@ export default async function DashboardPage() {
               Explore Mandi <ArrowUpRight size={14} />
             </div>
           </Link>
+        </section>
+
+        {/* CROPGUARD BIO-DEFENSE MODULES */}
+        <section className="mb-10">
+          <div className="mb-4">
+            <span className="text-xs font-mono uppercase tracking-wider text-amber-400 font-bold">CropGuard Integrated Modules</span>
+            <h2 className="text-xl font-extrabold text-white mt-0.5">Bio-Surveillance & Expert Suite</h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {/* Traps */}
+            <Link
+              href="/dashboard/traps"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-amber-500/40 hover:bg-white/[0.06] transition group"
+            >
+              <span className="text-2xl">🪤</span>
+              <h4 className="mt-3 font-bold text-sm text-white group-hover:text-amber-300 transition">Pest Traps & ETL</h4>
+              <p className="mt-1 text-[11px] text-white/50 leading-relaxed">Pheromone monitoring & threshold alerts</p>
+            </Link>
+
+            {/* Risk Radar */}
+            <Link
+              href="/dashboard/risk"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-teal-500/40 hover:bg-white/[0.06] transition group"
+            >
+              <span className="text-2xl">⚡</span>
+              <h4 className="mt-3 font-bold text-sm text-white group-hover:text-teal-300 transition">Risk Radar</h4>
+              <p className="mt-1 text-[11px] text-white/50 leading-relaxed">5-factor microclimate vulnerability score</p>
+            </Link>
+
+            {/* Hotspots */}
+            <Link
+              href="/dashboard/hotspots"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-rose-500/40 hover:bg-white/[0.06] transition group"
+            >
+              <span className="text-2xl">🔥</span>
+              <h4 className="mt-3 font-bold text-sm text-white group-hover:text-rose-300 transition">Outbreak Heatmap</h4>
+              <p className="mt-1 text-[11px] text-white/50 leading-relaxed">Regional disease migration corridors</p>
+            </Link>
+
+            {/* Inputs Store */}
+            <Link
+              href="/dashboard/inputs"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-emerald-500/40 hover:bg-white/[0.06] transition group"
+            >
+              <span className="text-2xl">🌱</span>
+              <h4 className="mt-3 font-bold text-sm text-white group-hover:text-emerald-300 transition">Verified Inputs</h4>
+              <p className="mt-1 text-[11px] text-white/50 leading-relaxed">Certified seeds, fertilizers & bio-agents</p>
+            </Link>
+
+            {/* Agronomist */}
+            <Link
+              href="/dashboard/agronomists"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 hover:border-purple-500/40 hover:bg-white/[0.06] transition group"
+            >
+              <span className="text-2xl">👨‍🌾</span>
+              <h4 className="mt-3 font-bold text-sm text-white group-hover:text-purple-300 transition">Ask Agronomist</h4>
+              <p className="mt-1 text-[11px] text-white/50 leading-relaxed">Book 1-on-1 ICAR & KVK expert calls</p>
+            </Link>
+          </div>
         </section>
 
         {/* ANALYTICS STATS ROW */}

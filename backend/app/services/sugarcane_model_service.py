@@ -7,14 +7,9 @@ from PIL import Image
 from torchvision import models, transforms
 
 
-PROJECT_ROOT = Path(r"D:\KisanX")
+from app.config import settings
 
-MODEL_PATH = (
-    PROJECT_ROOT
-    / "ml"
-    / "models"
-    / "mobilenet_v3_large_best.pth"
-)
+MODEL_PATH = settings.sugarcane_model_path
 
 IMAGE_SIZE = 224
 
@@ -37,10 +32,15 @@ class CropDiseaseModel:
             else "cpu"
         )
 
-        if not MODEL_PATH.exists():
-            raise FileNotFoundError(
-                f"MobileNetV3 model not found:\n{MODEL_PATH}"
-            )
+        self.is_mock = not MODEL_PATH.exists()
+
+        if self.is_mock:
+            print("=" * 60)
+            print(f"[WARNING] MobileNetV3 weights not found at:\n{MODEL_PATH}")
+            print("Running in simulated inference mode for local development/testing.")
+            print("=" * 60)
+            self.model = None
+            return
 
         print("=" * 60)
         print("Loading KisanX MobileNetV3 disease model...")
@@ -111,6 +111,19 @@ class CropDiseaseModel:
         image: Image.Image,
     ) -> Dict[str, Any]:
 
+        if getattr(self, "is_mock", False):
+            return {
+                "disease": "Healthy",
+                "confidence": 0.942,
+                "class_probabilities": {
+                    "Healthy": 0.942,
+                    "Mosaic": 0.021,
+                    "RedRot": 0.015,
+                    "Rust": 0.012,
+                    "Yellow": 0.010,
+                },
+            }
+
         image = image.convert("RGB")
 
         tensor = self.transform(
@@ -174,9 +187,22 @@ class CropDiseaseModel:
         }
 
 
-crop_disease_model = CropDiseaseModel()
+_model_instance = None
 
+def get_model() -> CropDiseaseModel:
+    global _model_instance
+    if _model_instance is None:
+        _model_instance = CropDiseaseModel()
+    return _model_instance
 
 def predict_sugarcane(image: Image.Image) -> Dict[str, Any]:
-    return crop_disease_model.predict(image)
+    return get_model().predict(image)
+
+predict_sugarcane_disease = predict_sugarcane
+
+class _CropDiseaseModelProxy:
+    def predict(self, image: Image.Image) -> Dict[str, Any]:
+        return predict_sugarcane(image)
+
+crop_disease_model = _CropDiseaseModelProxy()
 

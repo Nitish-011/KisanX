@@ -538,22 +538,22 @@ def save_scan(
     supabase = get_server_supabase()
 
     raw_severity = prediction.get("severity")
-    numeric_severity: float = 0.0
+    numeric_severity = 0
 
     if isinstance(raw_severity, (int, float)):
-        numeric_severity = float(raw_severity)
+        numeric_severity = int(float(raw_severity))
     elif isinstance(prediction.get("risk_score"), (int, float)):
-        numeric_severity = round(float(prediction["risk_score"]) / 100.0, 2)
+        numeric_severity = int(prediction["risk_score"])
     elif isinstance(raw_severity, str):
         severity_map = {
-            "HEALTHY": 0.0,
-            "LOW": 0.25,
-            "MODERATE": 0.50,
-            "HIGH": 0.75,
-            "SEVERE": 1.0,
-            "UNCERTAIN": 0.0,
+            "HEALTHY": 0,
+            "LOW": 25,
+            "MODERATE": 50,
+            "HIGH": 75,
+            "SEVERE": 100,
+            "UNCERTAIN": 0,
         }
-        numeric_severity = severity_map.get(raw_severity.upper().strip(), 0.0)
+        numeric_severity = severity_map.get(raw_severity.upper().strip(), 0)
 
     try:
         conf_val = float(prediction.get("confidence") or 0.0)

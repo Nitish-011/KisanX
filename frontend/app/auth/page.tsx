@@ -1,34 +1,47 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AuthUI } from "@/components/ui/auth_ui";
 import { createClient } from "@/lib/supabase/client";
 
 type UserRole = "FARMER" | "BUYER" | "OFFICER";
 
-export default function AuthPage() {
-  const router = useRouter();
+function AuthContent() {
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  const [initialMessage, setInitialMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("registered") === "true") {
+      setInitialMessage("Registration successful! You can now log in with your credentials.");
+    }
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      console.warn("Auth query notice:", errorParam);
+    }
+  }, [searchParams]);
 
   const redirectByRole = (role?: string | null) => {
     const cleanRole = (role || "FARMER").toUpperCase();
+    let target = "/dashboard";
     if (cleanRole === "BUYER") {
-      router.push("/market?tab=buyer");
+      target = "/market?tab=buyer";
     } else if (
       cleanRole === "OFFICER" ||
       cleanRole === "EXPERT" ||
       cleanRole === "INSPECTOR"
     ) {
-      router.push("/market?tab=inspector");
-    } else {
-      router.push("/dashboard");
+      target = "/market?tab=inspector";
     }
-    router.refresh();
+    // Use window.location.href to guarantee all session cookies are flushed
+    // and transmitted to Next.js Server Components on initial request.
+    window.location.href = target;
   };
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
 
@@ -65,8 +78,38 @@ export default function AuthPage() {
     fullName: string,
     role: UserRole,
   ) => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    let autoConfirmed = false;
+
+    // 1. Try fast backend registration with auto-confirmed email (bypasses unconfirmed SMTP requirement)
+    try {
+      const regRes = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          full_name: fullName,
+          role,
+        }),
+      });
+
+      if (regRes.ok) {
+        autoConfirmed = true;
+      }
+    } catch (backendErr) {
+      console.warn("Backend registration helper unavailable, falling back to Supabase client:", backendErr);
+    }
+
+    // 2. If backend auto-confirmed the account, log in immediately!
+    if (autoConfirmed) {
+      await signIn(email, password);
+      return;
+    }
+
+    // 3. Fallback to client-side Supabase signUp
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
@@ -86,35 +129,24 @@ export default function AuthPage() {
 
     // Try client-side profile upsert
     try {
-      const { error: profileError } = await supabase.from("profiles").upsert({
+      await supabase.from("profiles").upsert({
         id: data.user.id,
         full_name: fullName,
         role,
       });
-
-      // If client RLS restricted it (e.g. pending email confirmation), invoke backend service sync
-      if (profileError) {
-        console.warn("Client RLS notice, synchronizing profile via server-side service key:", profileError.message);
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-        await fetch(`${API_URL}/api/auth/profile`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: data.user.id,
-            full_name: fullName,
-            role,
-          }),
-        }).catch((err) => console.error("Server sync warning:", err));
-      }
     } catch (upsertErr) {
-      console.warn("Profile will be auto-populated by database trigger on_auth_user_created:", upsertErr);
+      console.warn("Profiles table bypass notice:", upsertErr);
     }
 
     if (data.session) {
       redirectByRole(role);
     } else {
-      router.push("/auth?registered=true");
-      router.refresh();
+      // Attempt immediate sign in in case project auto-confirms
+      try {
+        await signIn(email, password);
+      } catch {
+        window.location.href = "/auth?registered=true";
+      }
     }
   };
 
@@ -148,10 +180,19 @@ export default function AuthPage() {
 
   return (
     <AuthUI
+      initialMessage={initialMessage}
       onSignIn={signIn}
       onSignUp={signUp}
       onGoogleSignIn={googleSignIn}
       onDemoSignIn={demoSignIn}
     />
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#030604] flex items-center justify-center text-white/50 text-xs font-mono">Loading authentication...</div>}>
+      <AuthContent />
+    </Suspense>
   );
 }

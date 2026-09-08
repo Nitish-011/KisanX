@@ -485,6 +485,26 @@ The frontend communicates with the FastAPI backend at `http://127.0.0.1:8000`:
 | `/api/marketplace/sell-shop/messages`| `GET` | `?thread_id=...` | `components/market/sell_shop_chat.tsx` | Fetches conversation history and counter-offers |
 | `/api/marketplace/sell-shop/send` | `POST` | `{ thread_id, sender_id, message, offer_price }` | `components/market/sell_shop_chat.tsx` | Sends direct message or price counter-offer |
 | `/api/auth/profile` | `POST` | `{ id, full_name, role }` | `app/auth/page.tsx` | Synchronizes user profile via server service-role key |
+| `/api/farms/register` | `POST` | `{ farm, plot, crop_cycle }` | `app/dashboard/farm/new/page.tsx` | Registers farm, plot, and crop cycle atomically |
+| `/api/diagnoses` | `POST` | `FormData` (`file`, `crop_cycle_id`, `lat`, `lng`) | `app/dashboard/scan/page.tsx` | Uploads leaf photo, returns disease prediction & prescription |
+| `/api/diagnoses` | `GET` | None | Dashboard | Gets history of farmer's diagnoses |
+| `/api/diagnoses/{id}` | `GET` | None | Dashboard | Fetches single diagnosis with prescription details |
+| `/api/trap-counts` | `POST` | `FormData` (`file`, `crop_cycle_id`, `pest`) | Dashboard | Pest trap image counting and ETL threshold check |
+| `/api/trap-counts/{id}` | `GET` | None | Dashboard | History of trap counts for a crop cycle |
+| `/api/risk-score/{id}` | `GET` | None | Dashboard | Real-time weather/disease risk score for crop |
+| `/api/hotspot-reports` | `POST` | `{ diagnosis_id, lat, lng, disease }` | Dashboard | Manually report confirmed disease outbreak |
+| `/api/hotspots` | `GET` | `?days=30` | Map View | Fetches regional disease hotspots for rendering heatmap |
+| `/api/feedback` | `POST` | `{ diagnosis_id, outcome, comment }` | Advisory UI | Submits feedback on AI diagnosis for retraining |
+| `/api/feedback/{id}` | `GET` | None | Advisory UI | Gets feedback history for a specific diagnosis |
+| `/api/market/listings` | `POST` | `{ crop_type, asking_price, ... }` | `app/market/page.tsx` | Creates a new crop listing with AI quality score |
+| `/api/market/listings` | `GET` | `?sort=quality` | `app/market/page.tsx` | Fetches all available crop listings |
+| `/api/market/listings/{id}` | `GET` | None | `app/market/page.tsx` | Gets details of a single crop listing |
+| `/api/market/listings/{id}` | `PATCH` | `{ asking_price }` | `app/market/page.tsx` | Updates listing attributes |
+| `/api/market/orders` | `POST` | `{ order_type, listing_id, qty }` | `app/market/page.tsx` | Places an order for a crop listing |
+| `/api/inputs/sellers` | `POST` | `{ name, license_no, ... }` | Shop Registration | Registers a new input seller (requires admin approval) |
+| `/api/inputs/products` | `GET` | None | Input Marketplace | Fetches catalog of farming inputs |
+| `/api/agronomists` | `GET` | None | Agronomist View | Lists available agronomists |
+| `/api/consultations` | `POST` | `{ agronomist_id, channel }` | Agronomist View | Books an expert chat/video consultation |
 
 ---
 
@@ -494,8 +514,8 @@ The frontend communicates with the FastAPI backend at `http://127.0.0.1:8000`:
 
 ```env
 # Supabase Cloud Project Configuration
-NEXT_PUBLIC_SUPABASE_URL="https://uxizfuixvzcjkohfpkpv.supabase.co"
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_MDFcfUwZ-w2zKMBRaPS8sg_Xcml7YJn"
+NEXT_PUBLIC_SUPABASE_URL="https://eahcutkkosdvyztdmyot.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_DCCVzTYD37zpFvqo2ZlNaA_5CEYdJcC"
 
 # FastAPI Backend REST Gateway
 NEXT_PUBLIC_KISANX_API_URL="http://127.0.0.1:8000"

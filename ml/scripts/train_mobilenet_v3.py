@@ -17,14 +17,6 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 
 
-# ============================================================
-# KISANX - MobileNetV3-Large Sugarcane Disease Classifier
-# ============================================================
-
-# -----------------------------
-# Paths
-# -----------------------------
-
 PROJECT_ROOT = Path(r"D:\KisanX")
 
 DATASET_DIR = PROJECT_ROOT / "ml" / "dataset" / "split"
@@ -40,10 +32,6 @@ BEST_MODEL_PATH = MODEL_DIR / "mobilenet_v3_large_best.pth"
 FINAL_MODEL_PATH = MODEL_DIR / "mobilenet_v3_large_final.pth"
 METRICS_PATH = MODEL_DIR / "mobilenet_v3_metrics.json"
 
-
-# -----------------------------
-# Configuration
-# -----------------------------
 
 IMAGE_SIZE = 224
 
@@ -62,10 +50,6 @@ SEED = 42
 PATIENCE = 7
 
 
-# -----------------------------
-# Reproducibility
-# -----------------------------
-
 torch.manual_seed(SEED)
 
 if torch.cuda.is_available():
@@ -74,18 +58,10 @@ if torch.cuda.is_available():
 np.random.seed(SEED)
 
 
-# -----------------------------
-# Device
-# -----------------------------
-
 DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
 
-
-# -----------------------------
-# Classes
-# -----------------------------
 
 CLASS_NAMES = [
     "Healthy",
@@ -95,10 +71,6 @@ CLASS_NAMES = [
     "Yellow",
 ]
 
-
-# ============================================================
-# Utility functions
-# ============================================================
 
 def verify_dataset():
     """Verify that all required folders exist."""
@@ -142,10 +114,6 @@ def save_json(data, path):
         )
 
 
-# ============================================================
-# Main
-# ============================================================
-
 def main():
 
     print("=" * 70)
@@ -181,11 +149,6 @@ def main():
         print("WARNING: CUDA is not available.")
 
     print()
-
-
-    # ========================================================
-    # Image transformations
-    # ========================================================
 
     train_transform = transforms.Compose([
         transforms.Resize(
@@ -227,7 +190,6 @@ def main():
         ),
     ])
 
-
     eval_transform = transforms.Compose([
         transforms.Resize(
             (IMAGE_SIZE, IMAGE_SIZE)
@@ -249,11 +211,6 @@ def main():
         ),
     ])
 
-
-    # ========================================================
-    # Datasets
-    # ========================================================
-
     print("Loading datasets...")
 
     train_dataset = datasets.ImageFolder(
@@ -271,7 +228,6 @@ def main():
         transform=eval_transform
     )
 
-
     print()
     print("Dataset sizes:")
     print("Train:", len(train_dataset))
@@ -283,11 +239,6 @@ def main():
         + len(val_dataset)
         + len(test_dataset)
     )
-
-
-    # ========================================================
-    # Verify class mapping
-    # ========================================================
 
     print()
     print("Class mapping:")
@@ -309,11 +260,6 @@ def main():
             f"Expected: {expected_mapping}\n"
             f"Found: {train_dataset.class_to_idx}"
         )
-
-
-    # ========================================================
-    # Data loaders
-    # ========================================================
 
     train_loader = DataLoader(
         train_dataset,
@@ -339,11 +285,6 @@ def main():
         pin_memory=torch.cuda.is_available(),
     )
 
-
-    # ========================================================
-    # Model
-    # ========================================================
-
     print()
     print("Loading pretrained MobileNetV3-Large...")
 
@@ -352,9 +293,6 @@ def main():
     model = models.mobilenet_v3_large(
         weights=weights
     )
-
-    # Replace ImageNet classifier
-    # 1000 classes -> 5 KisanX classes
 
     in_features = model.classifier[-1].in_features
 
@@ -365,28 +303,13 @@ def main():
 
     model = model.to(DEVICE)
 
-
-    # ========================================================
-    # Loss
-    # ========================================================
-
     criterion = nn.CrossEntropyLoss()
-
-
-    # ========================================================
-    # Optimizer
-    # ========================================================
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=LEARNING_RATE,
         weight_decay=WEIGHT_DECAY
     )
-
-
-    # ========================================================
-    # Learning-rate scheduler
-    # ========================================================
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -395,21 +318,11 @@ def main():
         patience=2
     )
 
-
-    # ========================================================
-    # Mixed precision
-    # ========================================================
-
     use_amp = DEVICE.type == "cuda"
 
     scaler = GradScaler(
         enabled=use_amp
     )
-
-
-    # ========================================================
-    # Training history
-    # ========================================================
 
     history = {
         "train_loss": [],
@@ -419,7 +332,6 @@ def main():
         "learning_rate": [],
     }
 
-
     best_val_accuracy = 0.0
 
     best_model_weights = copy.deepcopy(
@@ -428,11 +340,6 @@ def main():
 
     epochs_without_improvement = 0
 
-
-    # ========================================================
-    # Training loop
-    # ========================================================
-
     print()
     print("=" * 70)
     print("STARTING TRAINING")
@@ -440,21 +347,15 @@ def main():
 
     total_start_time = time.time()
 
-
     for epoch in range(NUM_EPOCHS):
 
         epoch_start_time = time.time()
-
-        # ----------------------------------------------------
-        # TRAIN
-        # ----------------------------------------------------
 
         model.train()
 
         running_loss = 0.0
         correct = 0
         total = 0
-
 
         for images, labels in train_loader:
 
@@ -472,7 +373,6 @@ def main():
                 set_to_none=True
             )
 
-
             with autocast(
                 enabled=use_amp
             ):
@@ -484,13 +384,11 @@ def main():
                     labels
                 )
 
-
             scaler.scale(loss).backward()
 
             scaler.step(optimizer)
 
             scaler.update()
-
 
             running_loss += (
                 loss.item()
@@ -508,7 +406,6 @@ def main():
 
             total += labels.size(0)
 
-
         train_loss = (
             running_loss / total
         )
@@ -517,17 +414,11 @@ def main():
             correct / total
         )
 
-
-        # ----------------------------------------------------
-        # VALIDATION
-        # ----------------------------------------------------
-
         model.eval()
 
         val_running_loss = 0.0
         val_correct = 0
         val_total = 0
-
 
         with torch.no_grad():
 
@@ -543,7 +434,6 @@ def main():
                     non_blocking=True
                 )
 
-
                 with autocast(
                     enabled=use_amp
                 ):
@@ -554,7 +444,6 @@ def main():
                         outputs,
                         labels
                     )
-
 
                 val_running_loss += (
                     loss.item()
@@ -572,7 +461,6 @@ def main():
 
                 val_total += labels.size(0)
 
-
         val_loss = (
             val_running_loss / val_total
         )
@@ -581,19 +469,9 @@ def main():
             val_correct / val_total
         )
 
-
-        # ----------------------------------------------------
-        # Scheduler
-        # ----------------------------------------------------
-
         scheduler.step(val_loss)
 
         current_lr = optimizer.param_groups[0]["lr"]
-
-
-        # ----------------------------------------------------
-        # Save history
-        # ----------------------------------------------------
 
         history["train_loss"].append(
             train_loss
@@ -615,16 +493,10 @@ def main():
             current_lr
         )
 
-
         epoch_time = (
             time.time()
             - epoch_start_time
         )
-
-
-        # ----------------------------------------------------
-        # Output
-        # ----------------------------------------------------
 
         print()
 
@@ -638,11 +510,6 @@ def main():
             f"LR: {current_lr:.6f} | "
             f"Time: {epoch_time:.1f}s"
         )
-
-
-        # ----------------------------------------------------
-        # Best model
-        # ----------------------------------------------------
 
         if val_accuracy > best_val_accuracy:
 
@@ -681,11 +548,6 @@ def main():
                 f"({epochs_without_improvement}/{PATIENCE})"
             )
 
-
-        # ----------------------------------------------------
-        # Early stopping
-        # ----------------------------------------------------
-
         if epochs_without_improvement >= PATIENCE:
 
             print()
@@ -695,25 +557,14 @@ def main():
 
             break
 
-
     total_training_time = (
         time.time()
         - total_start_time
     )
 
-
-    # ========================================================
-    # Restore best model
-    # ========================================================
-
     model.load_state_dict(
         best_model_weights
     )
-
-
-    # ========================================================
-    # Final TEST evaluation
-    # ========================================================
 
     print()
     print("=" * 70)
@@ -724,7 +575,6 @@ def main():
 
     all_labels = []
     all_predictions = []
-
 
     with torch.no_grad():
 
@@ -741,12 +591,10 @@ def main():
 
                 outputs = model(images)
 
-
             predictions = torch.argmax(
                 outputs,
                 dim=1
             )
-
 
             all_labels.extend(
                 labels.numpy()
@@ -756,16 +604,10 @@ def main():
                 predictions.cpu().numpy()
             )
 
-
     test_accuracy = accuracy_score(
         all_labels,
         all_predictions
     )
-
-
-    # ========================================================
-    # Classification report
-    # ========================================================
 
     report = classification_report(
         all_labels,
@@ -774,7 +616,6 @@ def main():
         output_dict=True,
         zero_division=0
     )
-
 
     print()
 
@@ -787,16 +628,10 @@ def main():
         )
     )
 
-
-    # ========================================================
-    # Confusion matrix
-    # ========================================================
-
     cm = confusion_matrix(
         all_labels,
         all_predictions
     )
-
 
     print("Confusion Matrix:")
 
@@ -823,11 +658,6 @@ def main():
             )
         )
 
-
-    # ========================================================
-    # Save final model
-    # ========================================================
-
     torch.save(
         {
             "model_name": "MobileNetV3-Large",
@@ -840,11 +670,6 @@ def main():
         },
         FINAL_MODEL_PATH
     )
-
-
-    # ========================================================
-    # Save metrics
-    # ========================================================
 
     metrics = {
         "model": "MobileNetV3-Large",
@@ -904,22 +729,16 @@ def main():
                 torch.cuda.get_device_name(0)
                 if torch.cuda.is_available()
                 else "CPU"
-            ),
+        ),
 
         "history":
             history,
     }
 
-
     save_json(
         metrics,
         METRICS_PATH
     )
-
-
-    # ========================================================
-    # Final output
-    # ========================================================
 
     print()
     print("=" * 70)

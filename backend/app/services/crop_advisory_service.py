@@ -4,10 +4,6 @@ from app.services.rag_service import rag_service
 from app.services.ollama_service import ollama_service
 
 
-# ============================================================
-# KISANX CROP ADVISORY SERVICE
-# ============================================================
-
 ADVISORY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -39,10 +35,6 @@ ADVISORY_SCHEMA = {
     ],
 }
 
-
-# ============================================================
-# RETRIEVAL CONFIDENCE
-# ============================================================
 
 def calculate_retrieval_confidence(
     documents: list,
@@ -88,10 +80,6 @@ def calculate_retrieval_confidence(
     return "low"
 
 
-# ============================================================
-# SOURCE VALIDATION
-# ============================================================
-
 def validate_sources(
     sources: Any,
     document_count: int,
@@ -127,18 +115,19 @@ def validate_sources(
     )
 
 
-# ============================================================
-# ANSWER CLEANUP
-# ============================================================
-
 def clean_answer(
     answer: Any,
+    language: str = "en",
 ) -> str:
 
     if not isinstance(
         answer,
         str,
     ):
+        if language in {"hi", "hindi", "hin"}:
+            return "विश्वसनीय कृषि साक्ष्य के अभाव में अभी सुरक्षित सलाह उपलब्ध नहीं है।"
+        elif language in {"mr", "marathi", "mar"}:
+            return "विश्वसनीय कृषी पुराव्यांच्या अभावामुळे सध्या सुरक्षित सल्ला उपलब्ध नाही."
         return (
             "I don't have enough trusted "
             "agricultural evidence to answer "
@@ -147,7 +136,6 @@ def clean_answer(
 
     import re
 
-    # Remove accidental source leakage.
     answer = re.sub(
         r"\s*source[s]?\s*:\s*"
         r"\[[^\]]*\]",
@@ -156,30 +144,61 @@ def clean_answer(
         flags=re.IGNORECASE,
     )
 
-    # Remove trailing [1] or [1, 2].
     answer = re.sub(
         r"\s*\[[0-9]+(?:\s*,\s*[0-9]+)*\]\s*$",
         "",
         answer,
     )
 
-    # KisanX terminology protection.
     answer = answer.replace(
         "roughening",
         "rouging",
-    )
-
-    answer = answer.replace(
+    ).replace(
         "Roughening",
         "Rouging",
     )
 
+    # ----------------------------------------------------
+    # STRICT LANGUAGE HEADINGS NORMALIZATION
+    # ----------------------------------------------------
+    lang_clean = (language or "en").lower().strip()
+    if lang_clean in {"hi", "hindi", "hin"}:
+        replacements = [
+            (r"\*\*\s*WHAT(\s+IT\s+IS)?\s*:\s*\*\*", "**समस्या की पहचान:**"),
+            (r"WHAT(\s+IT\s+IS)?\s*:", "**समस्या की पहचान:**"),
+            (r"\*\*\s*WHY(\s+IT\s+HAPPENED)?\s*:\s*\*\*", "**कारण और प्रसार:**"),
+            (r"WHY(\s+IT\s+HAPPENED)?\s*:", "**कारण और प्रसार:**"),
+            (r"\*\*\s*HOW(\s+TO\s+TREAT)?\s*:\s*\*\*", "**उपचार और समाधान:**"),
+            (r"HOW(\s+TO\s+TREAT)?\s*:", "**उपचार और समाधान:**"),
+            (r"\*\*\s*WHEN\s*(&|AND)?\s*HOW\s+TO\s+PREVENT(\s+RECURRENCE)?\s*:\s*\*\*", "**भविष्य में रोकथाम एवं निगरानी:**"),
+            (r"\*\s*Nutrient Management\s*:", "* पोषक तत्व प्रबंधन:"),
+            (r"\*\s*Chemical Treatments?\s*:", "* प्रामाणिक रासायनिक उपचार:"),
+            (r"\*\s*Biological Treatments?\s*:", "* जैविक एवं प्राकृतिक उपचार:"),
+            (r"\*\s*Immediate Cultural Sanitation\s*:", "* तत्काल खेत स्वच्छता:"),
+        ]
+        for pattern, repl in replacements:
+            answer = re.sub(pattern, repl, answer, flags=re.IGNORECASE)
+
+    elif lang_clean in {"mr", "marathi", "mar"}:
+        replacements = [
+            (r"\*\*\s*WHAT(\s+IT\s+IS)?\s*:\s*\*\*", "**समस्येचे निदान:**"),
+            (r"WHAT(\s+IT\s+IS)?\s*:", "**समस्येचे निदान:**"),
+            (r"\*\*\s*WHY(\s+IT\s+HAPPENED)?\s*:\s*\*\*", "**प्रादुर्भावाचे कारण:**"),
+            (r"WHY(\s+IT\s+HAPPENED)?\s*:", "**प्रादुर्भावाचे कारण:**"),
+            (r"\*\*\s*HOW(\s+TO\s+TREAT)?\s*:\s*\*\*", "**उपाय आणि उपचार योजना:**"),
+            (r"HOW(\s+TO\s+TREAT)?\s*:", "**उपाय आणि उपचार योजना:**"),
+            (r"\*\*\s*WHEN\s*(&|AND)?\s*HOW\s+TO\s+PREVENT(\s+RECURRENCE)?\s*:\s*\*\*", "**भविष्यातील प्रतिबंध व काळजी:**"),
+            (r"\*\s*Nutrient Management\s*:", "* पोषकद्रव्ये व्यवस्थापन:"),
+            (r"\*\s*Chemical Treatments?\s*:", "* शिफारस केलेले रासायनिक उपचार:"),
+            (r"\*\s*Biological Treatments?\s*:", "* जैविक व नैसर्गिक उपचार:"),
+            (r"\*\s*Immediate Cultural Sanitation\s*:", "* शेतातील स्वच्छता व मशागत:"),
+        ]
+        for pattern, repl in replacements:
+            answer = re.sub(pattern, repl, answer, flags=re.IGNORECASE)
+
     return answer.strip()
 
 
-# ============================================================
-# SYSTEM PROMPT
-# ============================================================
 
 SYSTEM_PROMPT = """
 You are KisanX Crop Doctor.
@@ -362,21 +381,13 @@ No text outside JSON.
 """
 
 
-# ============================================================
-# GENERATE INITIAL CROP ADVISORY
-# ============================================================
-
 async def generate_crop_advisory(
     disease: str,
     classifier_confidence: float,
-    crop: str = "Sugarcane",
+    crop: str,
     language: str = "en",
     farm_context: Optional[str] = None,
 ) -> Dict[str, Any]:
-
-    # --------------------------------------------------------
-    # BUILD RETRIEVAL QUERY
-    # --------------------------------------------------------
 
     query_parts = [
         f"Crop: {crop}",
@@ -396,20 +407,12 @@ async def generate_crop_advisory(
         query_parts
     )
 
-    # --------------------------------------------------------
-    # RETRIEVE TRUSTED EVIDENCE
-    # --------------------------------------------------------
-
     documents = rag_service.retrieve(
         query=retrieval_query,
         match_count=5,
         crop=crop,
         disease=disease,
     )
-
-    # --------------------------------------------------------
-    # NO EVIDENCE
-    # --------------------------------------------------------
 
     if not documents:
 
@@ -431,10 +434,6 @@ async def generate_crop_advisory(
             "retrieved_documents": 0,
             "evidence": [],
         }
-
-    # --------------------------------------------------------
-    # BUILD EVIDENCE
-    # --------------------------------------------------------
 
     evidence_blocks = []
 
@@ -463,9 +462,37 @@ async def generate_crop_advisory(
         evidence_blocks
     )
 
-    # --------------------------------------------------------
-    # USER PROMPT
-    # --------------------------------------------------------
+    lang_clean = (language or "en").lower().strip()
+    if lang_clean in {"hi", "hindi", "hin"}:
+        language_task_instruction = (
+            "CRITICAL MANDATORY LANGUAGE INSTRUCTION: The farmer has requested HINDI.\n"
+            "You MUST write your ENTIRE answer in 100% pure Hindi (हिंदी भाषा, देवनागरी लिपि).\n"
+            "Do NOT write ANY English words, letters, or headings (No 'WHAT', 'WHY', 'HOW', etc.).\n"
+            "Use these Hindi Devanagari headings:\n"
+            "1. **समस्या की पहचान:**\n"
+            "2. **कारण और प्रसार:**\n"
+            "3. **उपचार और समाधान योजना:**\n"
+            "4. **भविष्य में रोकथाम एवं निगरानी:**"
+        )
+    elif lang_clean in {"mr", "marathi", "mar"}:
+        language_task_instruction = (
+            "CRITICAL MANDATORY LANGUAGE INSTRUCTION: The farmer has requested MARATHI.\n"
+            "You MUST write your ENTIRE answer in 100% pure Marathi (मराठी भाषा, देवनागरी लिपी).\n"
+            "Do NOT write ANY English words, letters, or headings.\n"
+            "Use these Marathi Devanagari headings:\n"
+            "1. **समस्येचे निदान:**\n"
+            "2. **प्रादुर्भावाचे कारण:**\n"
+            "3. **उपाय आणि उपचार योजना:**\n"
+            "4. **भविष्यातील प्रतिबंध व काळजी:**"
+        )
+    else:
+        language_task_instruction = (
+            "Write your entire answer in clear, empathetic, farmer-friendly English with structured sections:\n"
+            "1. **WHAT IT IS:**\n"
+            "2. **WHY IT HAPPENED:**\n"
+            "3. **HOW TO TREAT:**\n"
+            "4. **PREVENTION & RESCAN:**"
+        )
 
     user_prompt = f"""
 CROP
@@ -484,6 +511,8 @@ REQUESTED LANGUAGE
 
 {language}
 
+{language_task_instruction}
+
 FARM CONTEXT
 
 {farm_context or "Not provided"}
@@ -494,7 +523,7 @@ TRUSTED RETRIEVED EVIDENCE
 
 TASK
 
-Generate a practical initial advisory for the farmer.
+Generate a practical initial advisory for the farmer following the requested language instructions.
 
 Explain what the AI scan may indicate.
 
@@ -522,19 +551,11 @@ The AI scan is a prediction, not absolute proof.
 Return valid JSON only.
 """
 
-    # --------------------------------------------------------
-    # GEMMA
-    # --------------------------------------------------------
-
     result = await ollama_service.generate_json(
         system_prompt=SYSTEM_PROMPT,
         user_prompt=user_prompt,
         schema=ADVISORY_SCHEMA,
     )
-
-    # --------------------------------------------------------
-    # MODEL FAILURE
-    # --------------------------------------------------------
 
     if "error" in result:
 
@@ -558,10 +579,6 @@ Return valid JSON only.
             "error": result,
         }
 
-    # --------------------------------------------------------
-    # VALIDATE OUTPUT
-    # --------------------------------------------------------
-
     sources = validate_sources(
         result.get(
             "sources",
@@ -574,7 +591,8 @@ Return valid JSON only.
         result.get(
             "answer",
             "",
-        )
+        ),
+        language=language,
     )
 
     evidence_sufficient = bool(

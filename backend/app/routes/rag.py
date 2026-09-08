@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -13,14 +14,14 @@ router = APIRouter(
 
 class RAGRequest(BaseModel):
     disease: str
-    crop: str = "Sugarcane"
+    crop: str
 
 
 @router.post("/ask")
 async def ask_rag(request: RAGRequest):
 
     query = (
-        f"Sugarcane disease: {request.disease}. "
+        f"{request.crop} disease: {request.disease}. "
         "Explain the disease, why it occurs, "
         "what a farmer should do, how to prevent it, "
         "and what conditions may increase risk."
@@ -115,10 +116,15 @@ Generate the KisanX farmer advisory JSON.
         user_prompt=user_prompt,
     )
 
+    try:
+        parsed_advisory = json.loads(result)
+    except Exception:
+        parsed_advisory = {"raw_advisory": result}
+
     return {
         "disease": request.disease,
         "crop": request.crop,
         "retrieved_documents": len(documents),
         "evidence": documents,
-        "advisory": result,
+        "advisory": parsed_advisory,
     }

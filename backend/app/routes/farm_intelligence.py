@@ -13,10 +13,6 @@ router = APIRouter(
 )
 
 
-# ============================================================
-# AUTHENTICATION
-# ============================================================
-
 class AuthenticatedUser(BaseModel):
     id: str
 
@@ -95,10 +91,6 @@ def get_authenticated_user(
     )
 
 
-# ============================================================
-# REQUEST MODEL
-# ============================================================
-
 class ContextEntryCreate(BaseModel):
     farm_id: str
 
@@ -128,10 +120,6 @@ class ContextEntryCreate(BaseModel):
 
     language: str = "en"
 
-
-# ============================================================
-# VALID VALUES
-# ============================================================
 
 VALID_SOURCE_TYPES = {
     "farmer_reported",
@@ -186,10 +174,6 @@ def validate_context_payload(
         )
 
 
-# ============================================================
-# VERIFY FARM OWNERSHIP
-# ============================================================
-
 def verify_farm_ownership(
     supabase: Client,
     farm_id: str,
@@ -214,10 +198,6 @@ def verify_farm_ownership(
 
     return response.data[0]
 
-
-# ============================================================
-# GET FARM CONTEXT
-# ============================================================
 
 @router.get("/{farm_id}/context")
 def get_farm_context(
@@ -277,10 +257,6 @@ def get_farm_context(
         "context": response.data or [],
     }
 
-
-# ============================================================
-# CREATE FARM CONTEXT
-# ============================================================
 
 @router.post(
     "/{farm_id}/context",
@@ -364,10 +340,6 @@ def create_farm_context(
     }
 
 
-# ============================================================
-# DELETE FARM CONTEXT
-# ============================================================
-
 @router.delete("/{farm_id}/context/{context_id}")
 def delete_farm_context(
     farm_id: str,
@@ -407,10 +379,6 @@ def delete_farm_context(
         "context": response.data[0],
     }
 
-
-# ============================================================
-# GET SCAN HISTORY
-# ============================================================
 
 @router.get("/{farm_id}/scans")
 def get_scan_history(
@@ -470,10 +438,6 @@ def get_scan_history(
         "scans": response.data or [],
     }
 
-
-# ============================================================
-# GET ASSISTANT MESSAGE HISTORY
-# ============================================================
 
 @router.get("/{farm_id}/messages")
 def get_assistant_messages(

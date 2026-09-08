@@ -2,8 +2,7 @@
 
 import * as React from "react";
 
-interface RandomLetterSwapProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface RandomLetterSwapProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   text: string;
 }
 

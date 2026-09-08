@@ -6,15 +6,6 @@ import cv2
 import numpy as np
 
 
-# ============================================================
-# KISANX RGB SEVERITY ESTIMATOR
-#
-# IMPORTANT:
-# This produces an AI-estimated severity score.
-# It is NOT ground-truth severity and must not be reported
-# as a validated severity accuracy.
-# ============================================================
-
 DEFAULT_OUTPUT_DIR = Path(
     r"D:\KisanX\ml\outputs\severity_rgb"
 )
@@ -27,10 +18,6 @@ DISEASES = {
     "Yellow",
 }
 
-
-# ============================================================
-# IMAGE LOADING
-# ============================================================
 
 def load_image(image_path: Path):
 
@@ -47,20 +34,12 @@ def load_image(image_path: Path):
     return image
 
 
-# ============================================================
-# LEAF MASK
-# ============================================================
-
 def estimate_leaf_mask(image):
 
     hsv = cv2.cvtColor(
         image,
         cv2.COLOR_BGR2HSV,
     )
-
-    # Sugarcane leaf is generally green.
-    # We deliberately keep this broad because the dataset
-    # contains different lighting/background conditions.
 
     lower_green = np.array(
         [20, 25, 20],
@@ -78,7 +57,6 @@ def estimate_leaf_mask(image):
         upper_green,
     )
 
-    # Additional saturation/value condition.
     saturation = hsv[:, :, 1]
     value = hsv[:, :, 2]
 
@@ -92,7 +70,6 @@ def estimate_leaf_mask(image):
         broad_green,
     )
 
-    # Clean small holes/noise.
     kernel = cv2.getStructuringElement(
         cv2.MORPH_ELLIPSE,
         (7, 7),
@@ -112,7 +89,6 @@ def estimate_leaf_mask(image):
         iterations=1,
     )
 
-    # Keep largest connected component.
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
         mask,
         connectivity=8,
@@ -133,10 +109,6 @@ def estimate_leaf_mask(image):
 
     return leaf_mask
 
-
-# ============================================================
-# SYMPTOM MASK
-# ============================================================
 
 def estimate_symptom_mask(
     image,
@@ -164,10 +136,6 @@ def estimate_symptom_mask(
 
     leaf = leaf_mask > 0
 
-    # --------------------------------------------------------
-    # RED / BROWN SYMPTOMS
-    # --------------------------------------------------------
-
     red_1 = (
         (h < 12)
         & (s > 45)
@@ -193,10 +161,6 @@ def estimate_symptom_mask(
         | brown
     )
 
-    # --------------------------------------------------------
-    # YELLOW SYMPTOMS
-    # --------------------------------------------------------
-
     yellow = (
         (h >= 20)
         & (h <= 45)
@@ -204,28 +168,16 @@ def estimate_symptom_mask(
         & (v > 80)
     )
 
-    # --------------------------------------------------------
-    # PALE / CHLOROTIC REGIONS
-    # --------------------------------------------------------
-
     pale = (
         (s < 75)
         & (v > 115)
         & (l > 125)
     )
 
-    # --------------------------------------------------------
-    # DARK NECROTIC REGIONS
-    # --------------------------------------------------------
-
     dark = (
         (v < 75)
         & (s > 25)
     )
-
-    # --------------------------------------------------------
-    # DISEASE-SPECIFIC COMBINATION
-    # --------------------------------------------------------
 
     if disease == "RedRot":
         symptom = (
@@ -270,7 +222,6 @@ def estimate_symptom_mask(
         * 255
     )
 
-    # Remove isolated pixels.
     kernel = cv2.getStructuringElement(
         cv2.MORPH_ELLIPSE,
         (5, 5),
@@ -292,10 +243,6 @@ def estimate_symptom_mask(
 
     return symptom_mask
 
-
-# ============================================================
-# TEXTURE / COLOR FEATURES
-# ============================================================
 
 def calculate_features(
     image,
@@ -338,10 +285,6 @@ def calculate_features(
         / leaf_area
     )
 
-    # --------------------------------------------------------
-    # Connected symptom regions
-    # --------------------------------------------------------
-
     num_labels, _, stats, _ = (
         cv2.connectedComponentsWithStats(
             symptom_mask,
@@ -382,10 +325,6 @@ def calculate_features(
     else:
         fragmentation = 0.0
 
-    # --------------------------------------------------------
-    # Symptom density
-    # --------------------------------------------------------
-
     symptom_density = (
         symptom_area
         / max(
@@ -412,10 +351,6 @@ def calculate_features(
     }
 
 
-# ============================================================
-# SEVERITY SCORE
-# ============================================================
-
 def calculate_severity_score(
     features,
 ):
@@ -427,12 +362,6 @@ def calculate_severity_score(
     fragmentation = (
         features["fragmentation"]
     )
-
-    # Base score from affected leaf area.
-    #
-    # This is intentionally conservative.
-    # It is an estimation score, not a scientific
-    # severity ground truth.
 
     area_score = min(
         affected_percent * 2.0,
@@ -460,10 +389,6 @@ def calculate_severity_score(
     return score
 
 
-# ============================================================
-# SEVERITY CLASS
-# ============================================================
-
 def severity_class(score):
 
     if score < 25:
@@ -474,10 +399,6 @@ def severity_class(score):
 
     return "Severe"
 
-
-# ============================================================
-# ANNOTATED IMAGE
-# ============================================================
 
 def create_visualization(
     image,
@@ -491,7 +412,6 @@ def create_visualization(
 
     result = image.copy()
 
-    # Green leaf contour.
     contours, _ = cv2.findContours(
         leaf_mask,
         cv2.RETR_EXTERNAL,
@@ -506,7 +426,6 @@ def create_visualization(
         2,
     )
 
-    # Symptom overlay.
     symptom_indices = (
         symptom_mask > 0
     )
@@ -529,7 +448,6 @@ def create_visualization(
         0,
     )
 
-    # Information panel.
     panel_height = 115
 
     panel = np.zeros(
@@ -583,10 +501,6 @@ def create_visualization(
         result,
     )
 
-
-# ============================================================
-# MAIN ESTIMATION
-# ============================================================
 
 def estimate(
     image_path,
@@ -695,10 +609,6 @@ def estimate(
 
     return result
 
-
-# ============================================================
-# CLI
-# ============================================================
 
 def main():
 

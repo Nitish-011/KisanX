@@ -1,4 +1,8 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -17,9 +21,17 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3:4b"
 
     # ---------------------------------------------------------
-    # ML MODEL DIRECTORY
+    # ML MODEL PATHS
+    #
+    # Relative paths are resolved against the repository root
+    # so the backend runs on Linux/macOS/Windows without
+    # hardcoded absolute paths.
     # ---------------------------------------------------------
     model_dir: str = "ml/models"
+    sugarcane_model_file: str = "mobilenet_v3_large_best.pth"
+    cotton_model_path: str = (
+        "frontend/ml/cotton/runs/yolo26n_seg_clean/weights/best.pt"
+    )
 
     # ---------------------------------------------------------
     # CORS (comma-separated origins)
@@ -30,7 +42,7 @@ class Settings(BaseSettings):
     # ENVIRONMENT
     # ---------------------------------------------------------
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[str(BACKEND_DIR / ".env"), ".env"],
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -67,6 +79,33 @@ class Settings(BaseSettings):
             for origin in self.cors_origins.split(",")
             if origin.strip()
         ]
+
+    def _resolve(self, raw: str) -> Path:
+        """
+        Resolve a configured path. Absolute paths are used
+        as-is; relative paths are anchored to PROJECT_ROOT.
+        """
+        candidate = Path(raw)
+
+        if candidate.is_absolute():
+            return candidate
+
+        return PROJECT_ROOT / candidate
+
+    @property
+    def model_dir_path(self) -> Path:
+        """Directory holding trained model weights."""
+        return self._resolve(self.model_dir)
+
+    @property
+    def sugarcane_model_path(self) -> Path:
+        """Full path to the sugarcane MobileNetV3 checkpoint."""
+        return self.model_dir_path / self.sugarcane_model_file
+
+    @property
+    def cotton_model_path_resolved(self) -> Path:
+        """Full path to the cotton YOLO segmentation weights."""
+        return self._resolve(self.cotton_model_path)
 
 
 # -------------------------------------------------------------

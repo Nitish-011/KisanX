@@ -6,9 +6,6 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 
-# ============================================================
-# KISANX RGB SEVERITY ANNOTATOR
-# ============================================================
 
 DATASET_ROOT = Path(
     r"D:\KisanX\ml\dataset\processed\Sugarcane Leaf Disease Dataset"
@@ -42,10 +39,6 @@ PILOT_PER_DISEASE = 200
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
 
-# ============================================================
-# FIND IMAGES
-# ============================================================
-
 def collect_images():
     images = []
 
@@ -63,11 +56,9 @@ def collect_images():
 
         disease_images.sort()
 
-        # Randomized but reproducible order
         rng = random.Random(42)
         rng.shuffle(disease_images)
 
-        # Pilot target
         disease_images = disease_images[:PILOT_PER_DISEASE]
 
         for image_path in disease_images:
@@ -78,10 +69,6 @@ def collect_images():
 
     return images
 
-
-# ============================================================
-# ANNOTATION FILE
-# ============================================================
 
 def load_annotations():
     annotations = {}
@@ -139,10 +126,6 @@ def save_annotations(annotations):
             ensure_ascii=False,
         )
 
-
-# ============================================================
-# GUI
-# ============================================================
 
 class SeverityAnnotator:
 
@@ -205,10 +188,6 @@ class SeverityAnnotator:
         )
 
         self.show_current()
-
-    # ========================================================
-    # UI
-    # ========================================================
 
     def build_ui(self):
 
@@ -324,10 +303,6 @@ class SeverityAnnotator:
                 padx=4,
             )
 
-    # ========================================================
-    # BUTTONS
-    # ========================================================
-
     def button_action(self, key):
         if key in {"1", "2", "3", "4"}:
             self.annotate(key)
@@ -337,10 +312,6 @@ class SeverityAnnotator:
 
         elif key == "b":
             self.back()
-
-    # ========================================================
-    # NAVIGATION
-    # ========================================================
 
     def find_next_unannotated(self):
 
@@ -404,10 +375,6 @@ class SeverityAnnotator:
                 text=f"Could not open image:\n{e}",
             )
 
-    # ========================================================
-    # ANNOTATION
-    # ========================================================
-
     def annotate(self, key):
 
         if self.index >= len(self.images):
@@ -434,10 +401,6 @@ class SeverityAnnotator:
 
         self.show_current()
 
-    # ========================================================
-    # SKIP
-    # ========================================================
-
     def skip(self):
 
         if self.index >= len(self.images):
@@ -462,10 +425,6 @@ class SeverityAnnotator:
 
         self.show_current()
 
-    # ========================================================
-    # BACK
-    # ========================================================
-
     def back(self):
 
         if self.index <= 0:
@@ -473,7 +432,6 @@ class SeverityAnnotator:
 
         self.index -= 1
 
-        # Remove previous annotation so it can be relabeled
         previous = self.images[self.index]
 
         if previous["path"] in self.annotations:
@@ -486,10 +444,6 @@ class SeverityAnnotator:
             )
 
         self.show_current()
-
-    # ========================================================
-    # FINISHED
-    # ========================================================
 
     def finished(self):
 
@@ -512,10 +466,6 @@ class SeverityAnnotator:
             text=f"Total saved: {len(self.annotations)}"
         )
 
-    # ========================================================
-    # CLOSE
-    # ========================================================
-
     def close(self):
 
         save_annotations(
@@ -524,10 +474,6 @@ class SeverityAnnotator:
 
         self.root.destroy()
 
-
-# ============================================================
-# MAIN
-# ============================================================
 
 if __name__ == "__main__":
 

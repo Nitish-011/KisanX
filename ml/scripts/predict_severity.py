@@ -6,10 +6,6 @@ import numpy as np
 from ultralytics import YOLO
 
 
-# ============================================================
-# KISANX YOLO SEGMENTATION SEVERITY INFERENCE
-# ============================================================
-
 PROJECT_ROOT = Path(r"D:\KisanX")
 
 MODEL_PATH = (
@@ -33,14 +29,6 @@ OUTPUT_DIR.mkdir(
     exist_ok=True,
 )
 
-# ------------------------------------------------------------
-# Severity thresholds
-#
-# IMPORTANT:
-# These are PROTOTYPE thresholds.
-# They are NOT clinically/agronomically validated thresholds.
-# We will validate/refine them later.
-# ------------------------------------------------------------
 
 def severity_from_percentage(
     affected_area_percent: float,
@@ -60,10 +48,6 @@ def severity_from_percentage(
 
 def main():
 
-    # --------------------------------------------------------
-    # Validate model
-    # --------------------------------------------------------
-
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
             f"Model not found:\n{MODEL_PATH}"
@@ -74,10 +58,6 @@ def main():
     print("=" * 70)
     print(f"Model: {MODEL_PATH}")
 
-    # --------------------------------------------------------
-    # Load YOLO segmentation model
-    # --------------------------------------------------------
-
     model = YOLO(
         str(MODEL_PATH)
     )
@@ -86,10 +66,6 @@ def main():
     print(
         f"Classes: {model.names}"
     )
-
-    # --------------------------------------------------------
-    # Ask for image
-    # --------------------------------------------------------
 
     image_path = input(
         "\nEnter image path: "
@@ -104,10 +80,6 @@ def main():
             f"Image not found:\n{image_path}"
         )
 
-    # --------------------------------------------------------
-    # Run segmentation
-    # --------------------------------------------------------
-
     results = model.predict(
         source=str(image_path),
         imgsz=640,
@@ -117,10 +89,6 @@ def main():
     )
 
     result = results[0]
-
-    # --------------------------------------------------------
-    # Read original image
-    # --------------------------------------------------------
 
     image = cv2.imread(
         str(image_path)
@@ -137,10 +105,6 @@ def main():
         image_height
         * image_width
     )
-
-    # --------------------------------------------------------
-    # No detections
-    # --------------------------------------------------------
 
     if (
         result.masks is None
@@ -180,10 +144,6 @@ def main():
 
         return
 
-    # --------------------------------------------------------
-    # Extract masks
-    # --------------------------------------------------------
-
     masks = (
         result.masks.data
         .detach()
@@ -206,13 +166,6 @@ def main():
         .numpy()
     )
 
-    # --------------------------------------------------------
-    # Calculate total affected pixels
-    #
-    # We combine all predicted disease masks.
-    # Overlapping masks are counted only once.
-    # --------------------------------------------------------
-
     combined_mask = np.zeros(
         (
             image_height,
@@ -225,8 +178,6 @@ def main():
 
     for index, mask in enumerate(masks):
 
-        # YOLO mask is usually at model resolution.
-        # Resize it back to original image size.
         mask_resized = cv2.resize(
             mask,
             (
@@ -275,10 +226,6 @@ def main():
             }
         )
 
-    # --------------------------------------------------------
-    # Total affected area
-    # --------------------------------------------------------
-
     affected_pixels = int(
         np.count_nonzero(
             combined_mask
@@ -300,13 +247,8 @@ def main():
         affected_area_percent
     )
 
-    # --------------------------------------------------------
-    # Annotated image
-    # --------------------------------------------------------
-
     overlay = image.copy()
 
-    # Use a simple green overlay for the predicted disease area.
     overlay[
         combined_mask == 1
     ] = (
@@ -326,7 +268,6 @@ def main():
         0,
     )
 
-    # Draw YOLO boxes and labels.
     if result.boxes is not None:
 
         boxes = (
@@ -379,10 +320,6 @@ def main():
                 2,
             )
 
-    # --------------------------------------------------------
-    # Add severity information
-    # --------------------------------------------------------
-
     cv2.putText(
         annotated,
         f"Affected Area: {affected_area_percent:.2f}%",
@@ -402,10 +339,6 @@ def main():
         (255, 255, 255),
         2,
     )
-
-    # --------------------------------------------------------
-    # Save outputs
-    # --------------------------------------------------------
 
     annotated_path = (
         OUTPUT_DIR
@@ -443,10 +376,6 @@ def main():
             file,
             indent=2,
         )
-
-    # --------------------------------------------------------
-    # Console output
-    # --------------------------------------------------------
 
     print("\n" + "=" * 70)
     print("KISANX SEVERITY RESULT")

@@ -2,9 +2,6 @@ from pathlib import Path
 import random
 import shutil
 
-# ============================================================
-# KisanX - Sugarcane Disease Dataset Splitter
-# ============================================================
 
 SOURCE_DIR = Path(
     r"D:\KisanX\ml\dataset\processed\Sugarcane Leaf Disease Dataset"
@@ -14,10 +11,10 @@ OUTPUT_DIR = Path(
     r"D:\KisanX\ml\dataset\split"
 )
 
-# Reproducible split
+
 SEED = 42
 
-# Split ratios
+
 TRAIN_RATIO = 0.80
 VAL_RATIO = 0.10
 TEST_RATIO = 0.10
@@ -87,12 +84,10 @@ def main():
                 f"No images found in:\n{class_dir}"
             )
 
-        # Shuffle reproducibly
         random.shuffle(images)
 
         total = len(images)
 
-        # 80 / 10 / 10 split
         train_count = int(total * TRAIN_RATIO)
         val_count = int(total * VAL_RATIO)
 
@@ -104,7 +99,6 @@ def main():
             train_count + val_count:
         ]
 
-        # Destination folders
         train_dir = OUTPUT_DIR / "train" / class_name
         val_dir = OUTPUT_DIR / "val" / class_name
         test_dir = OUTPUT_DIR / "test" / class_name
@@ -127,7 +121,6 @@ def main():
     print(f"TOTAL IMAGES: {total_images}")
     print("=" * 60)
 
-    # Final verification
     print()
     print("Final split verification:")
 

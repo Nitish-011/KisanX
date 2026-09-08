@@ -13,7 +13,7 @@ from fastapi import (
 from PIL import Image
 
 from app.config import settings
-from app.services.crop_disease_model import crop_disease_model
+from app.services.crop_router import route_crop_prediction
 from app.services.crop_advisory_service import (
     generate_crop_advisory,
 )
@@ -27,10 +27,6 @@ router = APIRouter(
     tags=["Scans"],
 )
 
-
-# ============================================================
-# CONSTANTS
-# ============================================================
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
@@ -50,10 +46,6 @@ ALLOWED_EXTENSIONS = {
 
 STORAGE_BUCKET = "crop-scans"
 
-
-# ============================================================
-# AUTHENTICATION
-# ============================================================
 
 def extract_bearer_token(
     authorization: Optional[str],
@@ -150,22 +142,18 @@ def get_authenticated_user(
         )
 
 
-# ============================================================
-# FARM / PLOT / CROP-CYCLE RESOLUTION
-# ============================================================
-
 def resolve_scan_context(
     owner_id: str,
     farm_id: Optional[str],
     plot_id: Optional[str],
-) -> tuple[str, Optional[str], Optional[str]]:
+    requested_crop_name: Optional[str] = None,
+) -> tuple[str, Optional[str], Optional[str], str]:
     """
     Resolve and validate the farm, plot, and active crop cycle
     for a scan.
 
-    The farmer only selects the farm and plot.
-
-    KisanX automatically finds the ACTIVE crop cycle belonging
+    The farmer selects the farm, plot, and desired crop.
+    KisanX resolves or aligns the ACTIVE crop cycle belonging
     to that plot.
     """
 
@@ -182,10 +170,6 @@ def resolve_scan_context(
         )
 
     supabase = get_server_supabase()
-
-    # --------------------------------------------------------
-    # 1. VERIFY FARM OWNERSHIP
-    # --------------------------------------------------------
 
     try:
         farm_response = (
@@ -216,10 +200,6 @@ def resolve_scan_context(
                 "or does not belong to your account."
             ),
         )
-
-    # --------------------------------------------------------
-    # 2. VERIFY PLOT OWNERSHIP + FARM RELATIONSHIP
-    # --------------------------------------------------------
 
     try:
         plot_response = (
@@ -252,10 +232,6 @@ def resolve_scan_context(
             ),
         )
 
-    # --------------------------------------------------------
-    # 3. FIND ACTIVE CROP CYCLE
-    # --------------------------------------------------------
-
     try:
         crop_cycle_response = (
             supabase
@@ -287,38 +263,67 @@ def resolve_scan_context(
         crop_cycle_response.data or []
     )
 
-    if not crop_cycle_data:
+    clean_requested_crop = (
+        requested_crop_name.strip()
+        if requested_crop_name and requested_crop_name.strip()
+        else None
+    )
+
+    if crop_cycle_data:
+        crop_cycle = crop_cycle_data[0]
+        crop_cycle_id = crop_cycle.get("id")
+
+        if clean_requested_crop and crop_cycle.get("crop_name", "").strip().lower() != clean_requested_crop.lower():
+            # Align active cycle with the requested crop
+            try:
+                supabase.table("crop_cycles").update({
+                    "crop_name": clean_requested_crop
+                }).eq("id", crop_cycle_id).execute()
+                crop_name = clean_requested_crop
+            except Exception:
+                crop_name = clean_requested_crop
+        else:
+            crop_name = clean_requested_crop or crop_cycle.get("crop_name", "").strip()
+
+    elif clean_requested_crop:
+        # Create an active crop cycle for the requested crop if none exists
+        try:
+            insert_res = supabase.table("crop_cycles").insert({
+                "plot_id": plot_id,
+                "owner_id": owner_id,
+                "crop_name": clean_requested_crop,
+                "status": "ACTIVE"
+            }).execute()
+            if insert_res.data:
+                crop_cycle_id = insert_res.data[0]["id"]
+            else:
+                crop_cycle_id = None
+        except Exception:
+            crop_cycle_id = None
+        crop_name = clean_requested_crop
+    else:
         raise HTTPException(
             status_code=409,
             detail=(
                 "No active crop cycle was found for "
                 "this plot. Please register an active "
-                "sugarcane crop cycle before scanning."
+                "crop cycle or select a crop before scanning."
             ),
         )
 
-    crop_cycle = crop_cycle_data[0]
-
-    crop_cycle_id = crop_cycle.get("id")
-
-    if not crop_cycle_id:
+    if not crop_name:
         raise HTTPException(
-            status_code=500,
-            detail=(
-                "The active crop cycle is missing its ID."
-            ),
+            status_code=400,
+            detail="Crop is not configured for this active crop cycle."
         )
 
     return (
         farm_id,
         plot_id,
         crop_cycle_id,
+        crop_name.strip(),
     )
 
-
-# ============================================================
-# IMAGE VALIDATION
-# ============================================================
 
 async def read_and_validate_image(
     file: UploadFile,
@@ -398,29 +403,18 @@ async def read_and_validate_image(
     )
 
 
-# ============================================================
-# MODEL PREDICTION
-# ============================================================
-
 def run_disease_prediction(
+    crop_name: str,
     image: Image.Image,
 ):
     """
-    Run the trained MobileNetV3 disease classifier.
-
-    Expected result:
-
-    {
-        "disease": "...",
-        "confidence": 0.99,
-        "class_probabilities": {...},
-        ...
-    }
+    Run the crop-specific disease classifier.
     """
 
     try:
         prediction = (
-            crop_disease_model.predict(
+            route_crop_prediction(
+                crop_name,
                 image
             )
         )
@@ -485,10 +479,6 @@ def run_disease_prediction(
     return prediction
 
 
-# ============================================================
-# STORAGE
-# ============================================================
-
 def upload_scan_image(
     image_bytes: bytes,
     extension: str,
@@ -534,10 +524,6 @@ def upload_scan_image(
     return storage_path
 
 
-# ============================================================
-# DATABASE INSERT
-# ============================================================
-
 def save_scan(
     owner_id: str,
     farm_id: Optional[str],
@@ -551,6 +537,29 @@ def save_scan(
 
     supabase = get_server_supabase()
 
+    raw_severity = prediction.get("severity")
+    numeric_severity: float = 0.0
+
+    if isinstance(raw_severity, (int, float)):
+        numeric_severity = float(raw_severity)
+    elif isinstance(prediction.get("risk_score"), (int, float)):
+        numeric_severity = round(float(prediction["risk_score"]) / 100.0, 2)
+    elif isinstance(raw_severity, str):
+        severity_map = {
+            "HEALTHY": 0.0,
+            "LOW": 0.25,
+            "MODERATE": 0.50,
+            "HIGH": 0.75,
+            "SEVERE": 1.0,
+            "UNCERTAIN": 0.0,
+        }
+        numeric_severity = severity_map.get(raw_severity.upper().strip(), 0.0)
+
+    try:
+        conf_val = float(prediction.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        conf_val = 0.0
+
     row = {
         "owner_id": owner_id,
         "farm_id": farm_id,
@@ -560,17 +569,8 @@ def save_scan(
         "disease": prediction.get(
             "disease"
         ),
-        "confidence": prediction.get(
-            "confidence"
-        ),
-
-        # ----------------------------------------------------
-        # IMPORTANT:
-        # No validated severity score is claimed here.
-        # ----------------------------------------------------
-
-        "severity": None,
-
+        "confidence": conf_val,
+        "severity": numeric_severity,
         "latitude": latitude,
         "longitude": longitude,
     }
@@ -606,10 +606,6 @@ def save_scan(
     return data[0]
 
 
-# ============================================================
-# CREATE SCAN
-# ============================================================
-
 @router.post("/create")
 async def create_scan(
     file: UploadFile = File(...),
@@ -622,12 +618,9 @@ async def create_scan(
         default=None
     ),
 
-    # --------------------------------------------------------
-    # Kept for backward compatibility.
-    #
-    # The backend now resolves the active crop cycle
-    # automatically instead of trusting the frontend.
-    # --------------------------------------------------------
+    crop_name: Optional[str] = Form(
+        default=None
+    ),
 
     crop_cycle_id: Optional[str] = Form(
         default=None
@@ -654,10 +647,6 @@ async def create_scan(
     ),
 ):
 
-    # ========================================================
-    # 1. AUTHENTICATE
-    # ========================================================
-
     user = get_authenticated_user(
         authorization
     )
@@ -666,29 +655,17 @@ async def create_scan(
         user.id
     )
 
-    # ========================================================
-    # 2. RESOLVE FARM / PLOT / ACTIVE CYCLE
-    # ========================================================
-
     (
         resolved_farm_id,
         resolved_plot_id,
         resolved_crop_cycle_id,
+        resolved_crop_name,
     ) = resolve_scan_context(
         owner_id=owner_id,
         farm_id=farm_id,
         plot_id=plot_id,
+        requested_crop_name=crop_name,
     )
-
-    # ========================================================
-    # IMPORTANT:
-    #
-    # We intentionally DO NOT trust crop_cycle_id supplied
-    # by the frontend.
-    #
-    # The backend determines the active cycle from the
-    # authenticated user's farm + plot.
-    # ========================================================
 
     crop_cycle_id = (
         resolved_crop_cycle_id
@@ -702,10 +679,6 @@ async def create_scan(
         resolved_plot_id
     )
 
-    # ========================================================
-    # 3. VALIDATE IMAGE
-    # ========================================================
-
     (
         image_bytes,
         image,
@@ -714,11 +687,8 @@ async def create_scan(
         file
     )
 
-    # ========================================================
-    # 4. MOBILE NET DISEASE PREDICTION
-    # ========================================================
-
     prediction = run_disease_prediction(
+        resolved_crop_name,
         image
     )
 
@@ -732,19 +702,11 @@ async def create_scan(
         ]
     )
 
-    # ========================================================
-    # 5. UPLOAD ORIGINAL IMAGE
-    # ========================================================
-
     image_path = upload_scan_image(
         image_bytes=image_bytes,
         extension=extension,
         owner_id=owner_id,
     )
-
-    # ========================================================
-    # 6. SAVE SCAN
-    # ========================================================
 
     scan = save_scan(
         owner_id=owner_id,
@@ -757,10 +719,6 @@ async def create_scan(
         longitude=longitude,
     )
 
-    # ========================================================
-    # 7. RAG + GEMMA ADVISORY
-    # ========================================================
-
     try:
 
         advisory = await generate_crop_advisory(
@@ -768,21 +726,12 @@ async def create_scan(
             classifier_confidence=(
                 classifier_confidence
             ),
-            crop="Sugarcane",
+            crop=resolved_crop_name,
             language=language,
             farm_context=farm_context,
         )
 
     except Exception as exc:
-
-        # ----------------------------------------------------
-        # IMPORTANT:
-        #
-        # The scan has already been successfully classified
-        # and saved.
-        #
-        # Advisory failure must NOT erase the scan.
-        # ----------------------------------------------------
 
         advisory = {
             "answer": (
@@ -802,10 +751,6 @@ async def create_scan(
             "evidence": [],
             "error": str(exc),
         }
-
-    # ========================================================
-    # 8. FINAL RESPONSE
-    # ========================================================
 
     return {
         "success": True,

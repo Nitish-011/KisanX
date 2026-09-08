@@ -75,16 +75,23 @@ class OllamaService:
             "",
         ).strip()
 
+    async def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> str:
+        return await self._request(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            schema=None,
+        )
+
     async def generate_json(
         self,
         system_prompt: str,
         user_prompt: str,
         schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-
-        # ----------------------------------------------------
-        # ATTEMPT 1
-        # ----------------------------------------------------
 
         content = await self._request(
             system_prompt=system_prompt,
@@ -104,13 +111,6 @@ class OllamaService:
 
         except json.JSONDecodeError:
             pass
-
-        # ----------------------------------------------------
-        # ATTEMPT 2
-        # ----------------------------------------------------
-        #
-        # If Gemma returned malformed JSON, ask it again.
-        # ----------------------------------------------------
 
         retry_system_prompt = (
             system_prompt

@@ -21,19 +21,11 @@ from app.services.weather_service import (
 )
 
 
-# ============================================================
-# ROUTER
-# ============================================================
-
 router = APIRouter(
     prefix="/api/weather",
     tags=["Weather"],
 )
 
-
-# ============================================================
-# AUTHENTICATION
-# ============================================================
 
 bearer_scheme = HTTPBearer(
     auto_error=True
@@ -90,10 +82,6 @@ def get_authenticated_user(
     }
 
 
-# ============================================================
-# GET WEATHER FOR FARM
-# ============================================================
-
 @router.get(
     "/farm/{farm_id}",
     summary="Get weather for a farm",
@@ -116,10 +104,6 @@ async def get_farm_weather_endpoint(
     """
 
     user_id = user["id"]
-
-    # ========================================================
-    # GET FARM
-    # ========================================================
 
     try:
 
@@ -159,10 +143,6 @@ async def get_farm_weather_endpoint(
                 "have access to it."
             ),
         )
-
-    # ========================================================
-    # VALIDATE GPS
-    # ========================================================
 
     latitude = farm.get(
         "latitude"
@@ -208,10 +188,6 @@ async def get_farm_weather_endpoint(
             ),
         ) from exc
 
-    # ========================================================
-    # FETCH WEATHER
-    # ========================================================
-
     try:
 
         weather = await get_farm_weather(
@@ -244,10 +220,6 @@ async def get_farm_weather_endpoint(
                 "Unexpected error while fetching weather."
             ),
         ) from exc
-
-    # ========================================================
-    # RESPONSE
-    # ========================================================
 
     return {
         "success": True,

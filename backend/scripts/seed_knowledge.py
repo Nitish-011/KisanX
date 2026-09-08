@@ -6,10 +6,6 @@ from sentence_transformers import SentenceTransformer
 from supabase import create_client
 
 
-# ============================================================
-# KISANX KNOWLEDGE BASE SEEDER
-# ============================================================
-
 BASE_DIR = os.path.dirname(
     os.path.dirname(
         os.path.abspath(__file__)
@@ -23,10 +19,6 @@ load_dotenv(
     )
 )
 
-
-# ============================================================
-# ENVIRONMENT
-# ============================================================
 
 SUPABASE_URL = os.getenv(
     "SUPABASE_URL",
@@ -57,19 +49,11 @@ if not SUPABASE_SECRET_KEY:
     )
 
 
-# ============================================================
-# SUPABASE
-# ============================================================
-
 supabase = create_client(
     SUPABASE_URL,
     SUPABASE_SECRET_KEY,
 )
 
-
-# ============================================================
-# EMBEDDING MODEL
-# ============================================================
 
 print("=" * 70)
 print("Loading KisanX embedding model...")
@@ -84,15 +68,8 @@ print("Embedding model loaded.")
 print()
 
 
-# ============================================================
-# CANONICAL KNOWLEDGE
-# ============================================================
-
 KNOWLEDGE_RECORDS: List[Dict[str, Any]] = [
 
-    # ========================================================
-    # RED ROT — 5
-    # ========================================================
 
     {
         "title": "Sugarcane Red Rot: disease symptoms and identification",
@@ -225,9 +202,6 @@ KNOWLEDGE_RECORDS: List[Dict[str, Any]] = [
     },
 
 
-    # ========================================================
-    # MOSAIC — 2
-    # ========================================================
 
     {
         "title": "Sugarcane Mosaic: cause and symptoms",
@@ -282,9 +256,6 @@ KNOWLEDGE_RECORDS: List[Dict[str, Any]] = [
     },
 
 
-    # ========================================================
-    # YELLOW — 2
-    # ========================================================
 
     {
         "title": "Sugarcane Yellow Leaf Disease: symptoms",
@@ -339,9 +310,6 @@ KNOWLEDGE_RECORDS: List[Dict[str, Any]] = [
     },
 
 
-    # ========================================================
-    # RUST — 2
-    # ========================================================
 
     {
         "title": "Sugarcane Rust: identification and symptoms",
@@ -396,10 +364,6 @@ KNOWLEDGE_RECORDS: List[Dict[str, Any]] = [
     },
 ]
 
-
-# ============================================================
-# VALIDATION
-# ============================================================
 
 EXPECTED_COUNTS = {
     "RedRot": 5,
@@ -456,10 +420,6 @@ def validate_records() -> None:
         )
 
 
-# ============================================================
-# EMBEDDING
-# ============================================================
-
 def build_embedding_text(
     record: Dict[str, Any],
 ) -> str:
@@ -486,10 +446,6 @@ def create_embedding(
 
     return embedding.tolist()
 
-
-# ============================================================
-# MAIN
-# ============================================================
 
 def main() -> None:
 
@@ -589,4 +545,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        from seed_multi_crop_knowledge import main as multi_crop_main
+    except ImportError:
+        from scripts.seed_multi_crop_knowledge import main as multi_crop_main
+    multi_crop_main()

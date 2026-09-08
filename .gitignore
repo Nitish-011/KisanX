@@ -21,16 +21,36 @@ out/
 *.7z
 *.pt
 *.pth
+*.onnx
 temp/
 temp_severity_dataset/
 runs/
 weights/
 models/
+dataset/
+**/dataset/
+**/datasets/
+**/runs/
+**/runs_old/
+**/weights/
 ml/dataset/
 ml/outputs/
 ml/models/
 ml/runs/
+frontend/ml/cotton/data/
+frontend/ml/cotton/runs/
+frontend/ml/cotton/weights/
+frontend/ml/cotton/runs_old/
+
+# ML Photos and image datasets
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.webp
+!frontend/public/**
 
 # OS generated files
 .DS_Store
 Thumbs.db
+

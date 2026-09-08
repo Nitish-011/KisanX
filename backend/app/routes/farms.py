@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 from supabase import Client, create_client
@@ -23,23 +25,7 @@ def get_settings():
 def get_supabase() -> Client:
     settings = get_settings()
 
-    # ---------------------------------------------------------
-    # DEBUG: CHECK SUPABASE CONFIGURATION
-    # ---------------------------------------------------------
-
-    print("")
-    print("========== SUPABASE CONFIG CHECK ==========")
-    print("SUPABASE_URL loaded:", bool(settings.supabase_url))
-    print(
-        "SUPABASE_PUBLISHABLE_KEY loaded:",
-        bool(settings.supabase_publishable_key),
-    )
-    print(
-        "SUPABASE_SERVICE_KEY loaded:",
-        bool(settings.supabase_service_key),
-    )
-    print("============================================")
-    print("")
+    secret_key = settings.server_secret_key or settings.supabase_secret_key or settings.supabase_service_role_key
 
     if not settings.supabase_url:
         raise HTTPException(
@@ -47,7 +33,7 @@ def get_supabase() -> Client:
             detail="Supabase URL is not configured.",
         )
 
-    if not settings.supabase_service_key:
+    if not secret_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Supabase server secret is not configured.",
@@ -56,7 +42,7 @@ def get_supabase() -> Client:
     try:
         return create_client(
             settings.supabase_url,
-            settings.supabase_service_key,
+            secret_key,
         )
     except Exception as exc:
         print("========== SUPABASE CLIENT ERROR ==========")
@@ -71,17 +57,19 @@ def get_supabase() -> Client:
 
 
 def get_authenticated_user(
-    authorization: str = Header(...),
+    authorization: Optional[str] = Header(None),
 ) -> AuthenticatedUser:
 
-    # ---------------------------------------------------------
-    # CHECK AUTHORIZATION HEADER
-    # ---------------------------------------------------------
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header is required.",
+        )
 
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header.",
+            detail="Invalid authorization header. Must start with 'Bearer '.",
         )
 
     token = authorization.replace(
@@ -110,10 +98,6 @@ def get_authenticated_user(
             detail="Supabase publishable key is not configured.",
         )
 
-    # ---------------------------------------------------------
-    # VERIFY USER TOKEN
-    # ---------------------------------------------------------
-
     try:
         supabase = create_client(
             settings.supabase_url,
@@ -123,32 +107,48 @@ def get_authenticated_user(
         response = supabase.auth.get_user(token)
 
     except Exception as exc:
-        print("")
-        print("========== AUTHENTICATION ERROR ==========")
-        print("ERROR TYPE:", type(exc).__name__)
-        print("ERROR:", repr(exc))
-        print("==========================================")
-        print("")
-
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token.",
         ) from exc
 
-    if not response.user:
+    if not response or not response.user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authenticated user not found.",
         )
 
-    print(
-        "Authenticated user:",
-        response.user.id,
-    )
-
     return AuthenticatedUser(
         id=response.user.id,
     )
+
+
+def get_optional_authenticated_user(
+    authorization: Optional[str] = Header(None),
+) -> Optional[AuthenticatedUser]:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.replace("Bearer ", "", 1).strip()
+    if not token:
+        return None
+
+    try:
+        settings = get_settings()
+        if not settings.supabase_url or not settings.supabase_publishable_key:
+            return None
+
+        supabase = create_client(
+            settings.supabase_url,
+            settings.supabase_publishable_key,
+        )
+        response = supabase.auth.get_user(token)
+        if response and response.user:
+            return AuthenticatedUser(id=response.user.id)
+    except Exception:
+        return None
+
+    return None
 
 
 @router.post(
@@ -162,20 +162,12 @@ def register_farm(
     ),
 ):
 
-    # ---------------------------------------------------------
-    # CREATE SUPABASE CLIENT
-    # ---------------------------------------------------------
-
     supabase = get_supabase()
 
     farm_id = None
     plot_id = None
 
     try:
-
-        # =====================================================
-        # 1. CREATE FARM
-        # =====================================================
 
         farm_data = {
             "owner_id": user.id,
@@ -212,10 +204,6 @@ def register_farm(
             farm_id,
         )
 
-        # =====================================================
-        # 2. CREATE PLOT
-        # =====================================================
-
         plot_data = {
             "farm_id": farm_id,
             "owner_id": user.id,
@@ -250,10 +238,6 @@ def register_farm(
             "Plot created successfully:",
             plot_id,
         )
-
-        # =====================================================
-        # 3. CREATE CROP CYCLE
-        # =====================================================
 
         crop_cycle_data = {
             "plot_id": plot_id,
@@ -294,10 +278,6 @@ def register_farm(
             crop_cycle["id"],
         )
 
-        # =====================================================
-        # SUCCESS
-        # =====================================================
-
         print("")
         print("==========================================")
         print("     FARM REGISTRATION SUCCESSFUL")
@@ -312,10 +292,6 @@ def register_farm(
             "crop_cycle": crop_cycle,
         }
 
-    # =========================================================
-    # FASTAPI HTTP ERROR
-    # =========================================================
-
     except HTTPException:
         print("")
         print("========== HTTP ERROR ==========")
@@ -323,7 +299,6 @@ def register_farm(
         print("================================")
         print("")
 
-        # Rollback plot
         if plot_id:
             try:
                 (
@@ -339,7 +314,6 @@ def register_farm(
                     repr(rollback_error),
                 )
 
-        # Rollback farm
         if farm_id:
             try:
                 (
@@ -357,10 +331,6 @@ def register_farm(
 
         raise
 
-    # =========================================================
-    # DATABASE / UNKNOWN ERROR
-    # =========================================================
-
     except Exception as exc:
 
         print("")
@@ -377,10 +347,6 @@ def register_farm(
         print(str(exc))
         print("==============================================")
         print("")
-
-        # -----------------------------------------------------
-        # ROLLBACK PLOT
-        # -----------------------------------------------------
 
         if plot_id:
             try:
@@ -402,10 +368,6 @@ def register_farm(
                     repr(rollback_error),
                 )
 
-        # -----------------------------------------------------
-        # ROLLBACK FARM
-        # -----------------------------------------------------
-
         if farm_id:
             try:
                 (
@@ -426,11 +388,134 @@ def register_farm(
                     repr(rollback_error),
                 )
 
-        # -----------------------------------------------------
-        # RETURN REAL ERROR
-        # -----------------------------------------------------
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Farm registration failed: {str(exc)}",
         ) from exc
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+)
+def list_farms(
+    user: Optional[AuthenticatedUser] = Depends(get_optional_authenticated_user),
+):
+    supabase = get_supabase()
+    try:
+        query = supabase.table("farms").select("*")
+        if user and user.id:
+            query = query.eq("owner_id", user.id)
+        
+        farms_res = query.order("created_at", desc=True).limit(25).execute()
+        farms = farms_res.data or []
+        farm_ids = [f["id"] for f in farms]
+
+        plots_by_farm: Dict[str, List[Dict[str, Any]]] = {fid: [] for fid in farm_ids}
+        if farm_ids:
+            plots_res = (
+                supabase.table("plots")
+                .select("*")
+                .in_("farm_id", farm_ids)
+                .order("name", desc=False)
+                .execute()
+            )
+            plots = plots_res.data or []
+            plot_ids = [p["id"] for p in plots]
+
+            cycles_by_plot: Dict[str, Dict[str, Any]] = {}
+            if plot_ids:
+                cycles_res = (
+                    supabase.table("crop_cycles")
+                    .select("*")
+                    .in_("plot_id", plot_ids)
+                    .eq("status", "ACTIVE")
+                    .execute()
+                )
+                for c in (cycles_res.data or []):
+                    cycles_by_plot[c["plot_id"]] = c
+
+            for p in plots:
+                p["active_crop_cycle"] = cycles_by_plot.get(p["id"])
+                if p["farm_id"] in plots_by_farm:
+                    plots_by_farm[p["farm_id"]].append(p)
+
+        for f in farms:
+            f["plots"] = plots_by_farm.get(f["id"], [])
+
+        return {
+            "success": True,
+            "count": len(farms),
+            "farms": farms,
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch farms: {str(exc)}",
+        ) from exc
+
+
+@router.get(
+    "/{farm_id}",
+    status_code=status.HTTP_200_OK,
+)
+def get_farm(
+    farm_id: str,
+    user: AuthenticatedUser = Depends(get_authenticated_user),
+):
+    supabase = get_supabase()
+    try:
+        farm_res = (
+            supabase.table("farms")
+            .select("*")
+            .eq("id", farm_id)
+            .eq("owner_id", user.id)
+            .limit(1)
+            .execute()
+        )
+        if not farm_res.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Farm not found.",
+            )
+        farm = farm_res.data[0]
+
+        plots_res = (
+            supabase.table("plots")
+            .select("*")
+            .eq("farm_id", farm_id)
+            .order("name", desc=False)
+            .execute()
+        )
+        plots = plots_res.data or []
+        plot_ids = [p["id"] for p in plots]
+
+        cycles_by_plot: Dict[str, Dict[str, Any]] = {}
+        if plot_ids:
+            cycles_res = (
+                supabase.table("crop_cycles")
+                .select("*")
+                .in_("plot_id", plot_ids)
+                .eq("status", "ACTIVE")
+                .execute()
+            )
+            for c in (cycles_res.data or []):
+                cycles_by_plot[c["plot_id"]] = c
+
+        for p in plots:
+            p["active_crop_cycle"] = cycles_by_plot.get(p["id"])
+
+        farm["plots"] = plots
+
+        return {
+            "success": True,
+            "farm": farm,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch farm details: {str(exc)}",
+        ) from exc
+

@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Activity,
   ArrowUpRight,
-  CloudRain,
+  Bot,
+  CheckCircle2,
+  Compass,
+  FileCheck,
   MapPin,
+  Scan,
   ScanLine,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
+  Video,
 } from "lucide-react";
 import { LiquidMetalButton } from "@/components/ui/liquid_metal_button";
 
@@ -81,8 +88,7 @@ function PlasmaField() {
             Math.sin(Math.sqrt(nx * nx + ny * ny) * 19 - time * 1.3);
 
           const glow =
-            Math.exp(-(((nx + 0.2) ** 2) / 0.08 + ((ny - 0.05) ** 2) / 0.15)) *
-            0.8;
+            Math.exp(-((nx + 0.2) ** 2 / 0.08 + (ny - 0.05) ** 2 / 0.15)) * 0.8;
 
           const t = Math.max(0, Math.min(1, field / 8 + 0.52 + glow));
           const [r, g, b] = palette(t);
@@ -121,174 +127,399 @@ function PlasmaField() {
 }
 
 const TICKER = [
-  "SUGARCANE",
-  "COTTON",
-  "WHEAT",
-  "RICE",
-  "SOYBEAN",
-  "MAIZE",
+  "COTTON (YOLOv11-SEG)",
+  "SUGARCANE (MobileNetV3)",
+  "GEMMA 3 4B ICAR RAG",
+  "OPENCV HARVEST YIELD VALUATION",
+  "GPS MANDI PROXIMITY RADAR",
+  "SHA-256 ENCRYPTED TRADING",
+  "FOOD INSPECTOR CERTIFICATION",
 ];
 
+type SimulationTab = "Cotton" | "Sugarcane" | "Harvest" | "Radar";
+
 export function Hero() {
+  const [activeTab, setActiveTab] = useState<SimulationTab>("Cotton");
+
   return (
     <section
       id="crop-health"
       className="relative min-h-screen overflow-hidden bg-[#030604] text-white"
     >
+      {/* Background Layer */}
       <div className="pointer-events-none absolute inset-0">
         <PlasmaField />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_40%,rgba(20,71,32,0.28),transparent_48%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_15%,rgba(213,103,31,0.08),transparent_30%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_5%,#030604_82%)]" />
-        <div className="absolute inset-0 opacity-[0.13]" style={{
-          backgroundImage: "linear-gradient(rgba(126,155,128,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(126,155,128,.18) 1px, transparent 1px)",
-          backgroundSize: "78px 78px",
-          maskImage: "linear-gradient(to bottom, black, transparent 88%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black, transparent 88%)",
-        }} />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_40%,rgba(20,71,32,0.35),transparent_48%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_15%,rgba(213,103,31,0.12),transparent_30%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_5%,#030604_85%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.12]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(126,155,128,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(126,155,128,.18) 1px, transparent 1px)",
+            backgroundSize: "78px 78px",
+            maskImage: "linear-gradient(to bottom, black, transparent 88%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black, transparent 88%)",
+          }}
+        />
       </div>
 
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#e87524] to-transparent opacity-70" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#10b981] to-transparent opacity-70" />
 
-      <div className="relative mx-auto flex min-h-screen max-w-[1480px] items-center px-6 pb-12 pt-32 lg:px-10">
-        <div className="grid w-full items-center gap-16 lg:grid-cols-[1.03fr_0.97fr]">
+      <div className="relative mx-auto flex min-h-screen max-w-[1480px] items-center px-6 pb-16 pt-32 lg:px-10">
+        <div className="grid w-full items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
+          {/* Left Hero Content */}
           <div className="relative z-10">
-            <div className="mb-7 inline-flex items-center gap-2.5 rounded-full border border-[#36533b] bg-[#07100a]/75 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-[#9cad9f] backdrop-blur">
-              <span className="size-1.5 rounded-full bg-[#e87524] shadow-[0_0_12px_rgba(232,117,36,.8)]" />
-              Field intelligence · Maharashtra
+            <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-emerald-300 backdrop-blur-md">
+              <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+              Multi-Crop Neural Segregation & Mandi Radar Live
             </div>
 
-            <h1 className="max-w-4xl text-[3.8rem] font-semibold leading-[0.9] tracking-[-0.065em] sm:text-6xl lg:text-[6.7rem]">
-              See the problem.
+            <h1 className="max-w-4xl text-[3.2rem] font-extrabold leading-[0.94] tracking-[-0.05em] sm:text-6xl lg:text-[6.2rem]">
+              See the threat.
               <br />
-              <span className="text-[#e87524]">Before the field</span>
+              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-400 bg-clip-text text-transparent">
+                Value the harvest.
+              </span>
               <br />
-              <span className="text-[#d8d7ba]">does.</span>
+              <span className="text-white/90">Command the mandi.</span>
             </h1>
 
-            <p className="mt-8 max-w-2xl text-base leading-7 text-[#929e95] sm:text-lg">
-              KisanX turns a field observation into crop intelligence —
-              detecting disease, forecasting risk, guiding action, verifying
-              harvest readiness and helping farmers reach the market.
+            <p className="mt-7 max-w-2xl text-base leading-relaxed text-white/70 sm:text-lg">
+              KisanX bridges agricultural field robotics and cryptographic commerce. Run isolated 
+              <strong className="text-emerald-300 font-semibold"> YOLOv11 segmentation</strong> for Cotton and 
+              <strong className="text-amber-300 font-semibold"> MobileNetV3</strong> for Sugarcane, consult 
+              <strong className="text-teal-300 font-semibold"> Gemma 3 4B</strong> ICAR RAG, estimate lot yield via video AI, and trade over 
+              <strong className="text-orange-300 font-semibold"> GPS Proximity Radar</strong>.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/auth">
+            {/* Portal Direct Launch Actions */}
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link href="/dashboard/scan">
                 <LiquidMetalButton className="w-full sm:w-auto">
-                  Start with KisanX
+                  <Scan className="mr-2 size-4 text-emerald-300" />
+                  Launch AI Disease Doctor
                   <ArrowUpRight className="ml-2 size-4" />
                 </LiquidMetalButton>
               </Link>
 
               <Link
-                href="#intelligence"
-                className="inline-flex h-12 items-center justify-center rounded-full border border-[#344438] bg-[#071009]/70 px-6 text-sm font-semibold text-[#c1c9c2] transition hover:border-[#5b715e] hover:bg-[#0d1710] hover:text-white"
+                href="/market"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-orange-500/30 bg-orange-950/30 px-6 text-sm font-semibold text-orange-200 transition hover:border-orange-500/60 hover:bg-orange-900/40 hover:text-white"
               >
-                See how it works
+                <Video className="mr-2 size-4 text-orange-400" />
+                Harvest Valuation & Mandi
+              </Link>
+
+              <Link
+                href="/market?tab=buyer"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 bg-white/5 px-6 text-sm font-semibold text-white/90 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
+              >
+                <Compass className="mr-2 size-4 text-emerald-400" />
+                Buyer GPS Radar
+              </Link>
+
+              <Link
+                href="/market?tab=inspector"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-teal-500/30 bg-teal-950/25 px-5 text-sm font-semibold text-teal-200 transition hover:border-teal-500/60 hover:bg-teal-900/30 hover:text-white"
+              >
+                <ShieldCheck className="mr-2 size-4 text-teal-400" />
+                Food Inspector Portal
               </Link>
             </div>
 
+            {/* Marquee Ticker */}
             <div className="mt-11 max-w-xl overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
-              <div className="flex w-max animate-[kisanx-marquee_18s_linear_infinite] gap-7 text-[10px] font-medium tracking-[0.22em] text-[#617065]">
+              <div className="flex w-max animate-[kisanx-marquee_20s_linear_infinite] gap-7 text-[11px] font-mono tracking-wider text-white/40">
                 {[...TICKER, ...TICKER].map((crop, index) => (
                   <span key={`${crop}-${index}`} className="flex items-center gap-7">
                     {crop}
-                    <span className="size-1 rounded-full bg-[#e87524]" />
+                    <span className="size-1 rounded-full bg-emerald-400" />
                   </span>
                 ))}
               </div>
             </div>
           </div>
 
+          {/* Right Live Interactive Simulator Card */}
           <div className="relative hidden lg:block">
-            <div className="absolute -inset-20 rounded-full bg-[#15411f]/25 blur-[100px]" />
+            <div className="absolute -inset-20 rounded-full bg-emerald-600/20 blur-[120px]" />
 
-            <div className="relative rounded-[2rem] border border-[#314a35] bg-[#061009]/80 p-5 shadow-[0_35px_110px_rgba(0,0,0,.55)] backdrop-blur-xl">
-              <div className="mb-5 flex items-center justify-between">
+            <div className="relative rounded-[2.5rem] border border-white/15 bg-gradient-to-b from-white/[0.08] to-white/[0.02] p-6 shadow-[0_35px_110px_rgba(0,0,0,0.85)] backdrop-blur-2xl">
+              {/* Header with 4-way Simulator Switcher */}
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[#657267]">
-                    Field intelligence
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-white/50 font-mono">
+                    Real-Time Telemetry Node
                   </p>
-                  <p className="mt-1 text-sm font-medium text-[#dbe2dc]">
-                    Sugarcane · Pune District
+                  <p className="mt-0.5 text-sm font-bold text-white">
+                    {activeTab === "Cotton" && "Cotton Foliage · Vidarbha"}
+                    {activeTab === "Sugarcane" && "Sugarcane Cane · Pune"}
+                    {activeTab === "Harvest" && "Harvest Video Engine · 3.5 Acres"}
+                    {activeTab === "Radar" && "Buyer Proximity Radar · Active Mandi"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 rounded-full border border-[#35523b] bg-[#09160c] px-3 py-1.5 text-[10px] uppercase tracking-wider text-[#91a795]">
-                  <span className="size-1.5 rounded-full bg-[#86b08c]" />
-                  Live
+
+                {/* Switcher Pills */}
+                <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-white/10 bg-black/60 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("Cotton")}
+                    className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                      activeTab === "Cotton"
+                        ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    🌿 Cotton
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("Sugarcane")}
+                    className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                      activeTab === "Sugarcane"
+                        ? "bg-amber-500 text-black shadow-md shadow-amber-500/20"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    🎋 Cane
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("Harvest")}
+                    className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                      activeTab === "Harvest"
+                        ? "bg-orange-500 text-black shadow-md shadow-orange-500/20"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    🎥 Harvest
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("Radar")}
+                    className={`rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                      activeTab === "Radar"
+                        ? "bg-teal-500 text-black shadow-md shadow-teal-500/20"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    📡 Radar
+                  </button>
                 </div>
               </div>
 
-              <div className="relative h-[380px] overflow-hidden rounded-[1.5rem] border border-[#29412e] bg-[#07120a]">
-                <div className="absolute inset-0 opacity-70" style={{
-                  backgroundImage: "linear-gradient(35deg, transparent 47%, rgba(93,130,96,.16) 48%, transparent 49%), linear-gradient(145deg, transparent 47%, rgba(93,130,96,.1) 48%, transparent 49%)",
-                  backgroundSize: "94px 94px",
-                }} />
+              {/* Viewport Simulation Box */}
+              <div className="relative h-[370px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-[#050b07]">
+                <div
+                  className="absolute inset-0 opacity-40"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(35deg, transparent 47%, rgba(16,185,129,.15) 48%, transparent 49%), linear-gradient(145deg, transparent 47%, rgba(16,185,129,.1) 48%, transparent 49%)",
+                    backgroundSize: "80px 80px",
+                  }}
+                />
 
-                <div className="absolute inset-x-0 top-0 h-20 animate-[kisanx-scan_4s_ease-in-out_infinite] bg-gradient-to-b from-[#e87524]/12 to-transparent" />
+                {/* Animated scan wave */}
+                <div className="absolute inset-x-0 top-0 h-24 animate-[kisanx-scan_4s_ease-in-out_infinite] bg-gradient-to-b from-emerald-400/20 to-transparent" />
 
-                <div className="absolute left-[15%] top-[22%] size-28 rounded-full border border-[#e87524]/35 bg-[#e87524]/5 shadow-[0_0_60px_rgba(232,117,36,.12)]" />
-                <div className="absolute left-[22%] top-[29%] rounded-xl border border-[#6b4329] bg-[#120e09]/95 px-4 py-3 shadow-xl backdrop-blur">
-                  <div className="flex items-center gap-3">
-                    <ScanLine className="size-4 text-[#ef8b43]" />
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-[#8d7565]">Detected</p>
-                      <p className="text-xs font-semibold text-[#f0d6c2]">Red Rot · 82%</p>
+                {/* Dynamic Screen Contents Based on activeTab */}
+                {activeTab === "Cotton" && (
+                  <>
+                    <div className="absolute left-[18%] top-[18%] size-36 rounded-full border border-emerald-400/40 bg-emerald-500/10 shadow-[0_0_50px_rgba(16,185,129,0.2)] animate-pulse" />
+                    <div className="absolute left-[20%] top-[22%] rounded-2xl border border-emerald-500/40 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-3">
+                        <Scan className="size-4 text-emerald-400" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold">
+                            YOLOv11 Seg
+                          </p>
+                          <p className="text-xs font-extrabold text-white">
+                            Bacterial Blight · 94.8%
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="absolute right-[10%] bottom-[21%] size-32 rounded-full border border-[#719477]/30 bg-[#719477]/5" />
-                <div className="absolute right-[16%] bottom-[27%] rounded-xl border border-[#3a533f] bg-[#09120b]/95 px-4 py-3 shadow-xl backdrop-blur">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="size-4 text-[#91b395]" />
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-[#6d7d71]">7-day risk</p>
-                      <p className="text-xs font-semibold text-[#d0ddd2]">Moderate</p>
+                    <div className="absolute right-[12%] bottom-[24%] rounded-2xl border border-white/10 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-3">
+                        <Activity className="size-4 text-amber-400" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-white/50">
+                            Foliar Severity
+                          </p>
+                          <p className="text-xs font-bold text-amber-300">
+                            Moderate (18.5% Area)
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
-                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-xl border border-white/[0.07] bg-[#050906]/75 px-4 py-3 backdrop-blur-md">
+                {activeTab === "Sugarcane" && (
+                  <>
+                    <div className="absolute left-[18%] top-[18%] size-36 rounded-full border border-amber-400/40 bg-amber-500/10 shadow-[0_0_50px_rgba(245,158,11,0.2)] animate-pulse" />
+                    <div className="absolute left-[20%] top-[22%] rounded-2xl border border-amber-500/40 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-3">
+                        <ScanLine className="size-4 text-amber-400" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-amber-400 font-bold">
+                            MobileNetV3
+                          </p>
+                          <p className="text-xs font-extrabold text-white">
+                            Red Rot · 93.4%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="absolute right-[12%] bottom-[24%] rounded-2xl border border-white/10 bg-black/85 px-4 py-3 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-3">
+                        <TrendingUp className="size-4 text-red-400" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-white/50">
+                            Sucrose Loss Risk
+                          </p>
+                          <p className="text-xs font-bold text-red-300">
+                            High Priority (Immediate Roguing)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {activeTab === "Harvest" && (
+                  <>
+                    <div className="absolute left-[15%] top-[15%] rounded-2xl border border-orange-500/40 bg-black/90 p-4 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-3">
+                        <Video className="size-5 text-orange-400 animate-pulse" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-orange-400 font-bold">
+                            OpenCV Keyframe Sampling
+                          </p>
+                          <p className="text-sm font-extrabold text-white">
+                            3.5 Acres · 92.4% Health Score
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-2 text-[11px]">
+                        <div>
+                          <span className="text-white/50">Est. Yield:</span>{" "}
+                          <span className="font-bold text-emerald-400">35.8 Quintals</span>
+                        </div>
+                        <div>
+                          <span className="text-white/50">Valuation:</span>{" "}
+                          <span className="font-bold text-orange-400">₹2,59,550</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="absolute right-[10%] bottom-[20%] rounded-2xl border border-emerald-500/40 bg-black/90 px-4 py-3 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">
+                        <CheckCircle2 size={14} className="text-emerald-400" />
+                        Gemma 3 4B Appraisal Attached
+                      </div>
+                      <p className="mt-1 text-[10px] text-white/60">
+                        Grade A Premium Quality · Optimal picking window next 4 days.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {activeTab === "Radar" && (
+                  <>
+                    <div className="absolute left-[15%] top-[15%] rounded-2xl border border-teal-500/40 bg-black/90 p-4 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-3">
+                        <Compass className="size-5 text-teal-400 animate-spin" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-teal-400 font-bold">
+                            Buyer Proximity Radar
+                          </p>
+                          <p className="text-sm font-extrabold text-white">
+                            3.8 km Away · Haversine Matched
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[10px] font-mono text-white/50">
+                        SHA-256 Lock: <span className="text-teal-300">9c4e...d81a</span>
+                      </div>
+                    </div>
+
+                    <div className="absolute right-[10%] bottom-[20%] rounded-2xl border border-emerald-500/40 bg-black/90 px-4 py-3 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">
+                        <ShieldCheck size={15} className="text-emerald-400" />
+                        Phytosanitary Grade A Approved
+                      </div>
+                      <p className="mt-1 text-[10px] text-white/60">
+                        Certified by Food Safety & Quality Officer. Ready for dispatch.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Bottom Model Indicator Strip */}
+                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between rounded-xl border border-white/10 bg-black/85 px-4 py-2.5 backdrop-blur-md">
                   <div>
-                    <p className="text-[9px] uppercase tracking-wider text-[#66736a]">Field status</p>
-                    <p className="mt-1 text-xs font-semibold text-[#c3cec5]">Attention recommended</p>
+                    <p className="text-[9px] uppercase tracking-wider text-white/40 font-mono">
+                      Active Pipeline Core
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold text-emerald-300">
+                      {activeTab === "Cotton" && "YOLOv11-seg (Isolated Cotton Weights)"}
+                      {activeTab === "Sugarcane" && "MobileNetV3 (Isolated Cane Classifier)"}
+                      {activeTab === "Harvest" && "OpenCV Defect Sampling + Yield Math Engine"}
+                      {activeTab === "Radar" && "Haversine Distance Radar + SHA-256 Protocol"}
+                    </p>
                   </div>
-                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[#1a291d]">
-                    <div className="h-full w-[62%] rounded-full bg-[#e87524]" />
-                  </div>
+                  <span className="flex items-center gap-1.5 text-xs font-mono text-white/80">
+                    <CheckCircle2 size={13} className="text-emerald-400" /> Zero Cross-Bleed
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                {[
-                  { icon: ScanLine, label: "Crop health", value: "Scan", accent: true },
-                  { icon: CloudRain, label: "Weather", value: "Risk", accent: false },
-                  { icon: ShieldCheck, label: "Harvest", value: "Verify", accent: true },
-                ].map(({ icon: Icon, label, value, accent }) => (
-                  <div key={label} className="rounded-2xl border border-[#263b2a] bg-[#09140b] p-4 transition hover:border-[#e87524]/35">
-                    <Icon className={`size-4 ${accent ? "text-[#e87524]" : "text-[#8dad91]"}`} />
-                    <p className="mt-3 text-[9px] uppercase tracking-wider text-[#68766b]">{label}</p>
-                    <p className="mt-1 text-sm font-semibold text-[#d5ddd6]">{value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+              {/* 4 Interactive Feature Nodes */}
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                <Link
+                  href="/dashboard/scan"
+                  className="rounded-xl border border-white/10 bg-black/40 p-3 transition hover:border-emerald-500/40 hover:bg-white/[0.04]"
+                >
+                  <Scan size={16} className="text-emerald-400" />
+                  <p className="mt-1.5 text-[9px] uppercase tracking-wider text-white/40">AI Vision</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">Disease Doctor</p>
+                </Link>
 
-            <div className="absolute -bottom-7 -left-9 rounded-2xl border border-[#314735] bg-[#081109]/95 px-5 py-4 shadow-2xl backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <MapPin className="size-4 text-[#e87524]" />
-                <div>
-                  <p className="text-[9px] uppercase tracking-[0.18em] text-[#68766b]">Location signal</p>
-                  <p className="mt-1 text-xs font-medium text-[#c2cdc4]">Plot · Pune, Maharashtra</p>
-                </div>
+                <Link
+                  href="/market"
+                  className="rounded-xl border border-white/10 bg-black/40 p-3 transition hover:border-orange-500/40 hover:bg-white/[0.04]"
+                >
+                  <Video size={16} className="text-orange-400" />
+                  <p className="mt-1.5 text-[9px] uppercase tracking-wider text-white/40">Harvest AI</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">Video Yield</p>
+                </Link>
+
+                <Link
+                  href="/market?tab=buyer"
+                  className="rounded-xl border border-white/10 bg-black/40 p-3 transition hover:border-teal-500/40 hover:bg-white/[0.04]"
+                >
+                  <Compass size={16} className="text-teal-400" />
+                  <p className="mt-1.5 text-[9px] uppercase tracking-wider text-white/40">Buyer Radar</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">GPS Mandi</p>
+                </Link>
+
+                <Link
+                  href="/market?tab=inspector"
+                  className="rounded-xl border border-white/10 bg-black/40 p-3 transition hover:border-amber-500/40 hover:bg-white/[0.04]"
+                >
+                  <ShieldCheck size={16} className="text-amber-400" />
+                  <p className="mt-1.5 text-[9px] uppercase tracking-wider text-white/40">Quality Pass</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">Inspector Auth</p>
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#304833] to-transparent" />
     </section>
   );
 }

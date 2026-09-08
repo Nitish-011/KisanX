@@ -1,4 +1,4 @@
- import { FeatureBento } from "@/components/ui/feature_bento";
+import { FeatureBento } from "@/components/ui/feature_bento";
 
 export function Features() {
   return <FeatureBento />;

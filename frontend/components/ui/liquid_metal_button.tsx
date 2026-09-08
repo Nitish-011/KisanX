@@ -2,8 +2,7 @@
 
 import * as React from "react";
 
-interface LiquidMetalButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface LiquidMetalButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode;
 }
 

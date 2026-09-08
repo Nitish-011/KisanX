@@ -33,7 +33,6 @@ class PlotCreate(BaseModel):
 
 class CropCycleCreate(BaseModel):
     crop_name: str = Field(
-        default="Sugarcane",
         min_length=2,
         max_length=100,
     )

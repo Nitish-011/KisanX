@@ -3,20 +3,12 @@ from typing import Any
 import httpx
 
 
-# ============================================================
-# OPEN-METEO
-# ============================================================
-
 OPEN_METEO_FORECAST_URL = (
     "https://api.open-meteo.com/v1/forecast"
 )
 
 REQUEST_TIMEOUT_SECONDS = 15.0
 
-
-# ============================================================
-# WEATHER VARIABLES
-# ============================================================
 
 CURRENT_VARIABLES = [
     "temperature_2m",
@@ -58,10 +50,6 @@ DAILY_VARIABLES = [
 ]
 
 
-# ============================================================
-# VALIDATE COORDINATES
-# ============================================================
-
 def validate_coordinates(
     latitude: float,
     longitude: float,
@@ -77,10 +65,6 @@ def validate_coordinates(
             "Longitude must be between -180 and 180."
         )
 
-
-# ============================================================
-# GET WEATHER
-# ============================================================
 
 async def get_weather(
     latitude: float,
@@ -149,10 +133,6 @@ async def get_weather(
             "Could not connect to the weather provider."
         ) from exc
 
-    # --------------------------------------------------------
-    # PROVIDER ERROR
-    # --------------------------------------------------------
-
     if response.status_code != 200:
 
         try:
@@ -178,10 +158,6 @@ async def get_weather(
             )
         )
 
-    # --------------------------------------------------------
-    # PARSE JSON
-    # --------------------------------------------------------
-
     try:
 
         data = response.json()
@@ -200,10 +176,6 @@ async def get_weather(
 
     return data
 
-
-# ============================================================
-# GET FARM WEATHER
-# ============================================================
 
 async def get_farm_weather(
     farm_id: str,

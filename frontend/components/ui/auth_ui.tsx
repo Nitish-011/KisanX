@@ -3,424 +3,582 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-    ArrowRight,
-    Check,
-    Eye,
-    EyeOff,
-    Loader2,
-    LockKeyhole,
-    Mail,
-    UserRound,
+  ArrowRight,
+  Check,
+  Cpu,
+  Eye,
+  EyeOff,
+  Leaf,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
 } from "lucide-react";
 
 type AuthMode = "signin" | "signup";
-
-type AuthRole = "FARMER" | "BUYER" | "EXPERT";
+type AuthRole = "FARMER" | "BUYER" | "OFFICER";
 
 interface AuthUIProps {
-    onSignIn?: (email: string, password: string) => Promise<void> | void;
-    onSignUp?: (
-        email: string,
-        password: string,
-        fullName: string,
-        role: AuthRole,
-    ) => Promise<void> | void;
-    onGoogleSignIn?: () => Promise<void> | void;
+  onSignIn?: (email: string, password: string) => Promise<void> | void;
+  onSignUp?: (
+    email: string,
+    password: string,
+    fullName: string,
+    role: AuthRole,
+  ) => Promise<void> | void;
+  onGoogleSignIn?: () => Promise<void> | void;
+  onDemoSignIn?: (role: AuthRole) => Promise<void> | void;
 }
 
 const roles: {
-    value: AuthRole;
-    title: string;
-    description: string;
+  value: AuthRole;
+  title: string;
+  description: string;
+  icon: string;
 }[] = [
-        {
-            value: "FARMER",
-            title: "Farmer",
-            description: "Manage your fields, crop health and harvest.",
-        },
-        {
-            value: "BUYER",
-            title: "Buyer",
-            description: "Discover verified crops and connect with farmers.",
-        },
-        {
-            value: "EXPERT",
-            title: "Agriculture Expert",
-            description: "Review cases and help validate field observations.",
-        },
-    ];
+  {
+    value: "FARMER",
+    title: "Farmer / Seller",
+    description: "Run disease scans, calculate harvest yield via video AI, and receive buyer bids.",
+    icon: "🚜",
+  },
+  {
+    value: "BUYER",
+    title: "Commodity Buyer / Mill",
+    description: "Discover nearby certified lots on GPS radar and submit direct trade offers.",
+    icon: "🏭",
+  },
+  {
+    value: "OFFICER",
+    title: "Food Safety & Quality Inspector",
+    description: "Review YOLO defect telemetry and issue official Grade A phytosanitary passes.",
+    icon: "🛡️",
+  },
+];
 
-export function AuthUI({
-    onSignIn,
-    onSignUp,
-    onGoogleSignIn,
-}: AuthUIProps) {
-    const [mode, setMode] = React.useState<AuthMode>("signin");
-    const [fullName, setFullName] = React.useState("");
-    const [email, setEmail] = React.useState("");
-    const [password, setPassword] = React.useState("");
-    const [role, setRole] = React.useState<AuthRole>("FARMER");
-    const [showPassword, setShowPassword] = React.useState(false);
-    const [loading, setLoading] = React.useState(false);
-    const [googleLoading, setGoogleLoading] = React.useState(false);
-    const [message, setMessage] = React.useState("");
-    const [error, setError] = React.useState("");
+export function AuthUI({ onSignIn, onSignUp, onGoogleSignIn, onDemoSignIn }: AuthUIProps) {
+  const [mode, setMode] = React.useState<AuthMode>("signin");
+  const [fullName, setFullName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [role, setRole] = React.useState<AuthRole>("FARMER");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [demoLoadingRole, setDemoLoadingRole] = React.useState<AuthRole | null>(null);
+  const [message, setMessage] = React.useState("");
+  const [error, setError] = React.useState("");
 
-    const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setLoading(true);
-        setError("");
-        setMessage("");
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
 
-        try {
-            if (mode === "signin") {
-                await onSignIn?.(email, password);
-            } else {
-                await onSignUp?.(email, password, fullName, role);
-            }
-        } catch (submissionError) {
-            setError(
-                submissionError instanceof Error
-                    ? submissionError.message
-                    : "Something went wrong. Please try again.",
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
+    try {
+      if (mode === "signin") {
+        await onSignIn?.(email, password);
+      } else {
+        await onSignUp?.(email, password, fullName, role);
+      }
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Authentication failed. Please check your credentials.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const googleSignIn = async () => {
-        setGoogleLoading(true);
-        setError("");
-        setMessage("");
+  const googleSignIn = async () => {
+    setGoogleLoading(true);
+    setError("");
+    setMessage("");
 
-        try {
-            await onGoogleSignIn?.();
-        } catch (submissionError) {
-            setError(
-                submissionError instanceof Error
-                    ? submissionError.message
-                    : "Google sign-in failed. Please try again.",
-            );
-        } finally {
-            setGoogleLoading(false);
-        }
-    };
+    try {
+      await onGoogleSignIn?.();
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Google sign-in failed. Please try again.",
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
-    const switchMode = (nextMode: AuthMode) => {
-        setMode(nextMode);
-        setError("");
-        setMessage("");
-    };
+  const switchMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setError("");
+    setMessage("");
+  };
 
-    return (
-        <main className="min-h-screen bg-[#030604] text-white">
-            <div className="grid min-h-screen lg:grid-cols-[1fr_0.9fr]">
-                <section className="relative hidden overflow-hidden border-r border-[#1d2b20] lg:flex">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_35%,rgba(33,86,43,.38),transparent_34%),radial-gradient(circle_at_80%_80%,rgba(216,109,34,.12),transparent_25%)]" />
+  const handleDemoClick = async (targetRole: AuthRole) => {
+    setDemoLoadingRole(targetRole);
+    setError("");
+    setMessage("");
 
-                    <div
-                        className="absolute inset-0 opacity-[0.12]"
-                        style={{
-                            backgroundImage:
-                                "linear-gradient(rgba(119,153,121,.2) 1px, transparent 1px), linear-gradient(90deg, rgba(119,153,121,.2) 1px, transparent 1px)",
-                            backgroundSize: "76px 76px",
-                            maskImage:
-                                "radial-gradient(ellipse at 35% 40%, black, transparent 75%)",
-                            WebkitMaskImage:
-                                "radial-gradient(ellipse at 35% 40%, black, transparent 75%)",
-                        }}
-                    />
+    try {
+      if (onDemoSignIn) {
+        await onDemoSignIn(targetRole);
+      } else if (onSignIn) {
+        let demoMail = "farmer@kisanx.com";
+        if (targetRole === "BUYER") demoMail = "buyer@kisanx.com";
+        if (targetRole === "OFFICER") demoMail = "officer@kisanx.com";
+        await onSignIn(demoMail, "Password123!");
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Instant demo login failed. Please try manual email entry.",
+      );
+    } finally {
+      setDemoLoadingRole(null);
+    }
+  };
 
-                    <div className="relative z-10 flex w-full flex-col justify-between p-10 xl:p-16">
-                        <Link
-                            href="/"
-                            className="w-fit text-2xl font-semibold tracking-[-0.05em]"
-                        >
-                            Kisan<span className="text-[#e87524]">X</span>
-                        </Link>
+  // Demo auto-fill helper
+  const fillDemo = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    setError("");
+    setMessage("Demo credentials filled. Click 'Enter KisanX Workspace' below.");
+  };
 
-                        <div className="max-w-xl">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#e87524]">
-                                Crop intelligence platform
-                            </p>
+  return (
+    <main className="min-h-screen bg-[#030604] text-white selection:bg-emerald-500/30 selection:text-white">
+      <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
+        {/* LEFT COLUMN: BRAND & AI HIGHLIGHTS */}
+        <section className="relative hidden overflow-hidden border-r border-white/10 lg:flex flex-col justify-between p-12 xl:p-16">
+          {/* Ambient Lighting */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/4 left-1/4 size-[550px] rounded-full bg-emerald-600/20 blur-[150px]" />
+            <div className="absolute bottom-1/4 right-1/4 size-[450px] rounded-full bg-amber-600/15 blur-[160px]" />
+          </div>
 
-                            <h1 className="mt-6 text-6xl font-semibold leading-[0.9] tracking-[-0.06em] xl:text-8xl">
-                                Your field.
-                                <br />
-                                <span className="text-[#789b7b]">Understood.</span>
-                            </h1>
+          <div className="relative z-10">
+            <Link href="/" className="inline-flex items-center gap-2 group">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-black font-extrabold text-xl shadow-lg shadow-emerald-500/25 transition group-hover:scale-105">
+                K
+              </span>
+              <span className="text-2xl font-bold tracking-tight text-white">
+                Kisan<span className="text-emerald-400">X</span>
+              </span>
+            </Link>
+          </div>
 
-                            <p className="mt-7 max-w-lg text-base leading-7 text-[#7f8d82]">
-                                Detect crop health issues, understand field risk, verify
-                                harvest readiness and move from farm intelligence to market.
-                            </p>
-
-                            <div className="mt-10 flex flex-wrap gap-2">
-                                {["Crop Vision", "Risk Forecast", "Harvest", "Marketplace"].map(
-                                    (item) => (
-                                        <span
-                                            key={item}
-                                            className="rounded-full border border-[#2b402f] bg-[#09120b]/70 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-[#7e8e81]"
-                                        >
-                                            {item}
-                                        </span>
-                                    ),
-                                )}
-                            </div>
-                        </div>
-
-                        <p className="text-xs text-[#4f5d52]">
-                            KisanX · AI-Powered Crop Health, Harvest & Market Intelligence
-                        </p>
-                    </div>
-                </section>
-
-                <section className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(31,75,39,.2),transparent_32%)]" />
-
-                    <div className="relative z-10 w-full max-w-md">
-                        <div className="mb-8 flex items-center justify-between lg:hidden">
-                            <Link
-                                href="/"
-                                className="text-2xl font-semibold tracking-[-0.05em]"
-                            >
-                                Kisan<span className="text-[#e87524]">X</span>
-                            </Link>
-
-                            <Link
-                                href="/"
-                                className="text-xs text-[#78847b] hover:text-white"
-                            >
-                                Back home
-                            </Link>
-                        </div>
-
-                        <div className="rounded-[2rem] border border-[#293b2d] bg-[#071009]/90 p-6 shadow-[0_30px_100px_rgba(0,0,0,.45)] backdrop-blur-xl sm:p-8">
-                            <div className="mb-8">
-                                <div className="mb-6 flex h-11 w-fit items-center rounded-xl border border-[#314734] bg-[#0b170d] px-3">
-                                    <span className="text-lg font-semibold tracking-[-0.04em]">
-                                        Kisan<span className="text-[#e87524]">X</span>
-                                    </span>
-                                </div>
-
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e87524]">
-                                    {mode === "signin" ? "Welcome back" : "Join KisanX"}
-                                </p>
-
-                                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em]">
-                                    {mode === "signin"
-                                        ? "Enter your field."
-                                        : "Start with your field."}
-                                </h2>
-
-                                <p className="mt-2 text-sm leading-6 text-[#758279]">
-                                    {mode === "signin"
-                                        ? "Sign in to continue to your KisanX workspace."
-                                        : "Create an account and bring your farm intelligence together."}
-                                </p>
-                            </div>
-
-                            <div className="mb-6 grid grid-cols-2 rounded-xl border border-[#27372b] bg-[#050a06] p-1">
-                                <button
-                                    type="button"
-                                    onClick={() => switchMode("signin")}
-                                    className={`rounded-lg py-2.5 text-sm font-medium transition ${mode === "signin"
-                                            ? "bg-[#16251a] text-white shadow"
-                                            : "text-[#6f7d73] hover:text-white"
-                                        }`}
-                                >
-                                    Sign in
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => switchMode("signup")}
-                                    className={`rounded-lg py-2.5 text-sm font-medium transition ${mode === "signup"
-                                            ? "bg-[#16251a] text-white shadow"
-                                            : "text-[#6f7d73] hover:text-white"
-                                        }`}
-                                >
-                                    Create account
-                                </button>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={googleSignIn}
-                                disabled={googleLoading || loading}
-                                className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#344438] bg-[#0a120c] text-sm font-medium text-[#d5ddd6] transition hover:border-[#526657] hover:bg-[#0e180f] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {googleLoading ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <span className="flex size-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-[#4285f4]">
-                                        G
-                                    </span>
-                                )}
-                                Continue with Google
-                            </button>
-
-                            <div className="my-6 flex items-center gap-3">
-                                <div className="h-px flex-1 bg-[#243228]" />
-                                <span className="text-[10px] uppercase tracking-[0.18em] text-[#536057]">
-                                    or
-                                </span>
-                                <div className="h-px flex-1 bg-[#243228]" />
-                            </div>
-
-                            <form onSubmit={submit} className="space-y-4">
-                                {mode === "signup" && (
-                                    <label className="block">
-                                        <span className="mb-2 block text-xs font-medium text-[#aeb8b0]">
-                                            Full name
-                                        </span>
-                                        <div className="relative">
-                                            <UserRound className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#5f6d63]" />
-                                            <input
-                                                required
-                                                value={fullName}
-                                                onChange={(event) => setFullName(event.target.value)}
-                                                placeholder="Your name"
-                                                className="h-12 w-full rounded-xl border border-[#2a3c2e] bg-[#050a06] pl-11 pr-4 text-sm text-white outline-none placeholder:text-[#4e5a51] focus:border-[#66836a]"
-                                            />
-                                        </div>
-                                    </label>
-                                )}
-
-                                <label className="block">
-                                    <span className="mb-2 block text-xs font-medium text-[#aeb8b0]">
-                                        Email
-                                    </span>
-                                    <div className="relative">
-                                        <Mail className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#5f6d63]" />
-                                        <input
-                                            required
-                                            type="email"
-                                            autoComplete="email"
-                                            value={email}
-                                            onChange={(event) => setEmail(event.target.value)}
-                                            placeholder="you@example.com"
-                                            className="h-12 w-full rounded-xl border border-[#2a3c2e] bg-[#050a06] pl-11 pr-4 text-sm text-white outline-none placeholder:text-[#4e5a51] focus:border-[#66836a]"
-                                        />
-                                    </div>
-                                </label>
-
-                                <label className="block">
-                                    <span className="mb-2 block text-xs font-medium text-[#aeb8b0]">
-                                        Password
-                                    </span>
-                                    <div className="relative">
-                                        <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#5f6d63]" />
-                                        <input
-                                            required
-                                            minLength={6}
-                                            type={showPassword ? "text" : "password"}
-                                            autoComplete={
-                                                mode === "signin" ? "current-password" : "new-password"
-                                            }
-                                            value={password}
-                                            onChange={(event) => setPassword(event.target.value)}
-                                            placeholder="Enter your password"
-                                            className="h-12 w-full rounded-xl border border-[#2a3c2e] bg-[#050a06] pl-11 pr-11 text-sm text-white outline-none placeholder:text-[#4e5a51] focus:border-[#66836a]"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword((value) => !value)}
-                                            className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#66746a] hover:text-white"
-                                            aria-label={
-                                                showPassword ? "Hide password" : "Show password"
-                                            }
-                                        >
-                                            {showPassword ? (
-                                                <EyeOff className="size-4" />
-                                            ) : (
-                                                <Eye className="size-4" />
-                                            )}
-                                        </button>
-                                    </div>
-                                </label>
-
-                                {mode === "signup" && (
-                                    <div>
-                                        <span className="mb-2 block text-xs font-medium text-[#aeb8b0]">
-                                            I am joining as
-                                        </span>
-
-                                        <div className="grid gap-2">
-                                            {roles.map((item) => {
-                                                const selected = role === item.value;
-
-                                                return (
-                                                    <button
-                                                        key={item.value}
-                                                        type="button"
-                                                        onClick={() => setRole(item.value)}
-                                                        className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${selected
-                                                                ? "border-[#6a814d] bg-[#101d12]"
-                                                                : "border-[#26372a] bg-[#050a06] hover:border-[#3b4e3e]"
-                                                            }`}
-                                                    >
-                                                        <span
-                                                            className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${selected
-                                                                    ? "border-[#e87524] bg-[#e87524] text-white"
-                                                                    : "border-[#4a584d]"
-                                                                }`}
-                                                        >
-                                                            {selected && <Check className="size-2.5" />}
-                                                        </span>
-                                                        <span>
-                                                            <span className="block text-xs font-semibold text-[#dbe1dc]">
-                                                                {item.title}
-                                                            </span>
-                                                            <span className="mt-0.5 block text-[11px] leading-4 text-[#68756b]">
-                                                                {item.description}
-                                                            </span>
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {error && (
-                                    <div className="rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-xs leading-5 text-red-300">
-                                        {error}
-                                    </div>
-                                )}
-
-                                {message && (
-                                    <div className="rounded-xl border border-[#315139] bg-[#0b1b0e] px-4 py-3 text-xs leading-5 text-[#9cbb9f]">
-                                        {message}
-                                    </div>
-                                )}
-
-                                <button
-                                    type="submit"
-                                    disabled={loading || googleLoading}
-                                    className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#d96d22] text-sm font-semibold text-white shadow-[0_12px_35px_rgba(217,109,34,.16)] transition hover:-translate-y-0.5 hover:bg-[#e57a2c] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {loading ? (
-                                        <Loader2 className="size-4 animate-spin" />
-                                    ) : (
-                                        <>
-                                            {mode === "signin" ? "Enter KisanX" : "Create KisanX account"}
-                                            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                                        </>
-                                    )}
-                                </button>
-                            </form>
-
-                            <p className="mt-6 text-center text-[11px] leading-5 text-[#59665d]">
-                                By continuing, you agree to use KisanX responsibly and provide
-                                accurate field information.
-                            </p>
-                        </div>
-                    </div>
-                </section>
+          <div className="relative z-10 max-w-xl my-auto">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-300 mb-6">
+              <Cpu size={14} className="text-emerald-400 animate-pulse" />
+              Multi-Crop Neural Intelligence
             </div>
-        </main>
-    );
+
+            <h1 className="text-5xl font-extrabold tracking-tight xl:text-7xl leading-[0.95] text-white">
+              Every Field. <br />
+              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-400 bg-clip-text text-transparent">
+                Instantly Understood.
+              </span>
+            </h1>
+
+            <p className="mt-6 text-base text-white/60 leading-relaxed max-w-lg">
+              Run isolated deep learning computer vision for Cotton & Sugarcane, forecast weather-driven pathogen spread, and access certified mandi buyers.
+            </p>
+
+            {/* Neural Features Pill List */}
+            <div className="mt-8 grid grid-cols-2 gap-3 max-w-md">
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/70 backdrop-blur-md">
+                <span className="text-base">🌿</span>
+                <div>
+                  <p className="font-bold text-white">Cotton YOLOv11</p>
+                  <p className="text-[10px] text-white/40">Instance Segmentation</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/70 backdrop-blur-md">
+                <span className="text-base">🎋</span>
+                <div>
+                  <p className="font-bold text-white">Sugarcane Deep</p>
+                  <p className="text-[10px] text-white/40">MobileNetV2 Classifier</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/70 backdrop-blur-md">
+                <Sparkles size={16} className="text-emerald-400 shrink-0" />
+                <div>
+                  <p className="font-bold text-white">RAG Agronomy</p>
+                  <p className="text-[10px] text-white/40">ICAR Grounded Evidence</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/70 backdrop-blur-md">
+                <ShieldCheck size={16} className="text-amber-400 shrink-0" />
+                <div>
+                  <p className="font-bold text-white">Mandi Connect</p>
+                  <p className="text-[10px] text-white/40">Direct Buyer Linkage</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 flex items-center justify-between text-xs text-white/40 font-mono pt-6 border-t border-white/10">
+            <span>KisanX Agriculture Cloud</span>
+            <span>Version 0.5.0 • Multi-Crop</span>
+          </div>
+        </section>
+
+        {/* RIGHT COLUMN: AUTHENTICATION CARD */}
+        <section className="relative flex min-h-screen items-center justify-center p-4 sm:p-8">
+          <div className="relative z-10 w-full max-w-md">
+            {/* Mobile Header */}
+            <div className="mb-6 flex items-center justify-between lg:hidden">
+              <Link href="/" className="text-xl font-bold tracking-tight text-white">
+                Kisan<span className="text-emerald-400">X</span>
+              </Link>
+              <Link href="/" className="text-xs text-white/50 hover:text-white">
+                ← Back Home
+              </Link>
+            </div>
+
+            {/* Auth Glass Card */}
+            <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 sm:p-8 shadow-[0_25px_80px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+              {/* Header */}
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {mode === "signin" ? "Secure Portal Access" : "Create Grower Account"}
+                </div>
+                <h2 className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                  {mode === "signin" ? "Welcome Back" : "Join KisanX Cloud"}
+                </h2>
+                <p className="mt-1 text-xs text-white/55 leading-relaxed">
+                  {mode === "signin"
+                    ? "Log in to manage your farmland, scans, and AI diagnostics."
+                    : "Register to unlock segregated computer vision models for your crops."}
+                </p>
+              </div>
+
+              {/* Mode Switch Tabs */}
+              <div className="mb-5 grid grid-cols-2 rounded-2xl border border-white/10 bg-black/40 p-1">
+                <button
+                  type="button"
+                  onClick={() => switchMode("signin")}
+                  className={`rounded-xl py-2.5 text-xs font-bold transition ${
+                    mode === "signin"
+                      ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("signup")}
+                  className={`rounded-xl py-2.5 text-xs font-bold transition ${
+                    mode === "signup"
+                      ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  Register
+                </button>
+              </div>
+
+              {/* 1-CLICK INSTANT EVALUATION / DEMO PORTAL (Active in Sign In Mode) */}
+              {mode === "signin" && (
+                <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-black/50 to-emerald-900/20 p-4 shadow-inner backdrop-blur-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-emerald-400 animate-pulse" />
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
+                        1-Click Instant Evaluation
+                      </span>
+                    </div>
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-mono font-semibold text-emerald-300">
+                      Zero Friction
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-white/65 mb-3 leading-snug">
+                    Bypass OAuth & verification. Click any persona to enter their live authenticated portal:
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Farmer */}
+                    <button
+                      type="button"
+                      onClick={() => handleDemoClick("FARMER")}
+                      disabled={loading || googleLoading || !!demoLoadingRole}
+                      className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
+                    >
+                      <span className="text-xl transition group-hover:scale-110">🚜</span>
+                      <span className="mt-1 text-[11px] font-bold text-white group-hover:text-emerald-300">Farmer</span>
+                      <span className="text-[9px] text-emerald-400 font-mono">Rameshwar</span>
+                      {demoLoadingRole === "FARMER" && (
+                        <Loader2 size={12} className="mt-1.5 animate-spin text-emerald-400" />
+                      )}
+                    </button>
+
+                    {/* Buyer */}
+                    <button
+                      type="button"
+                      onClick={() => handleDemoClick("BUYER")}
+                      disabled={loading || googleLoading || !!demoLoadingRole}
+                      className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-teal-500/50 hover:bg-teal-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
+                    >
+                      <span className="text-xl transition group-hover:scale-110">🏭</span>
+                      <span className="mt-1 text-[11px] font-bold text-white group-hover:text-teal-300">Buyer</span>
+                      <span className="text-[9px] text-teal-400 font-mono">Agro Mills</span>
+                      {demoLoadingRole === "BUYER" && (
+                        <Loader2 size={12} className="mt-1.5 animate-spin text-teal-400" />
+                      )}
+                    </button>
+
+                    {/* Officer */}
+                    <button
+                      type="button"
+                      onClick={() => handleDemoClick("OFFICER")}
+                      disabled={loading || googleLoading || !!demoLoadingRole}
+                      className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-amber-500/50 hover:bg-amber-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
+                    >
+                      <span className="text-xl transition group-hover:scale-110">🛡️</span>
+                      <span className="mt-1 text-[11px] font-bold text-white group-hover:text-amber-300">Inspector</span>
+                      <span className="text-[9px] text-amber-400 font-mono">FSSAI Pass</span>
+                      {demoLoadingRole === "OFFICER" && (
+                        <Loader2 size={12} className="mt-1.5 animate-spin text-amber-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Google OAuth Button */}
+              <button
+                type="button"
+                onClick={googleSignIn}
+                disabled={googleLoading || loading || !!demoLoadingRole}
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-white/15 bg-white/5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-50 shadow-sm"
+              >
+                {googleLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <svg className="size-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.04 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                    />
+                  </svg>
+                )}
+                Continue with Google
+              </button>
+
+              <div className="mt-2 text-center">
+                <span className="text-[10px] text-white/40">
+                  ⚠️ If Google shows Error 401, use the 1-Click Evaluation buttons above.
+                </span>
+              </div>
+
+              {/* Divider */}
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">
+                  or enter credentials manually
+                </span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+
+              {/* Credentials Form */}
+              <form onSubmit={submit} className="space-y-4">
+                {mode === "signup" && (
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">
+                      Full Name
+                    </label>
+                    <div className="relative">
+                      <UserRound className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        required
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="e.g. Ramesh Patil"
+                        className="h-11 w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 text-xs text-white outline-none focus:border-emerald-500/70"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-white/70">
+                      Email Address
+                    </label>
+                    {mode === "signin" && (
+                      <div className="flex items-center gap-1.5 text-[10px]">
+                        <span className="text-white/40">Fill:</span>
+                        <button
+                          type="button"
+                          onClick={() => fillDemo("farmer@kisanx.com", "Password123!")}
+                          className="font-semibold text-emerald-400 hover:underline"
+                        >
+                          Farmer
+                        </button>
+                        <span className="text-white/30">•</span>
+                        <button
+                          type="button"
+                          onClick={() => fillDemo("buyer@kisanx.com", "Password123!")}
+                          className="font-semibold text-teal-400 hover:underline"
+                        >
+                          Buyer
+                        </button>
+                        <span className="text-white/30">•</span>
+                        <button
+                          type="button"
+                          onClick={() => fillDemo("officer@kisanx.com", "Password123!")}
+                          className="font-semibold text-amber-400 hover:underline"
+                        >
+                          Inspector
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/40" />
+                    <input
+                      required
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="farmer@kisanx.com"
+                      className="h-11 w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 text-xs text-white outline-none focus:border-emerald-500/70"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/40" />
+                    <input
+                      required
+                      minLength={6}
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="h-11 w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-10 text-xs text-white outline-none focus:border-emerald-500/70"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label="Toggle password visibility"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Role selection on signup */}
+                {mode === "signup" && (
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-2">
+                      Select Primary Role
+                    </label>
+                    <div className="grid gap-2">
+                      {roles.map((r) => {
+                        const isSelected = role === r.value;
+                        return (
+                          <div
+                            key={r.value}
+                            onClick={() => setRole(r.value)}
+                            className={`cursor-pointer flex items-center justify-between rounded-xl border p-3 transition ${
+                              isSelected
+                                ? "border-emerald-500 bg-emerald-950/30 ring-1 ring-emerald-500"
+                                : "border-white/10 bg-black/30 hover:border-white/20"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xl">{r.icon}</span>
+                              <div>
+                                <p className="text-xs font-bold text-white">{r.title}</p>
+                                <p className="text-[10px] text-white/50">{r.description}</p>
+                              </div>
+                            </div>
+                            {isSelected && <Check size={14} className="text-emerald-400" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Messages */}
+                {error && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+                    <p className="leading-relaxed">{error}</p>
+                    <div className="mt-2.5 pt-2 border-t border-red-500/20 flex items-center justify-between">
+                      <span className="text-[10px] text-red-200/70">Want instant zero-friction demo?</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDemoClick("FARMER")}
+                        className="rounded-lg bg-emerald-500/25 px-2.5 py-1 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/40 transition flex items-center gap-1"
+                      >
+                        🌾 Enter as Farmer
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {message && (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
+                    {message}
+                  </div>
+                )}
+
+                {/* Submit Action */}
+                <button
+                  type="submit"
+                  disabled={loading || googleLoading}
+                  className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 py-3.5 text-xs font-extrabold text-black shadow-lg shadow-emerald-500/20 transition hover:shadow-emerald-500/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      Authenticating...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1.5">
+                      {mode === "signin" ? "Enter KisanX Workspace" : "Create Grower Account"}
+                      <ArrowRight size={14} />
+                    </span>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }
 
 export default AuthUI;

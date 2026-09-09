@@ -544,7 +544,254 @@ CREATE INDEX IF NOT EXISTS idx_crop_intuitions_owner ON public.crop_intuitions(o
 
 
 -- ====================================================================
--- 12. SUCCESS CONFIRMATION
+-- 12. CROPGUARD USP TABLES (Diagnoses, Traps, Inputs, Agronomists, etc.)
 -- ====================================================================
-SELECT 'KisanX database schema, RLS policies, Sell Shop negotiations, and crop_intuitions configured successfully!' AS status;
+
+-- 12.1 DIAGNOSES (USP 1 — Disease Progression Timeline)
+CREATE TABLE IF NOT EXISTS public.diagnoses (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    owner_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    crop_cycle_id   UUID REFERENCES public.crop_cycles(id) ON DELETE SET NULL,
+    scan_id         UUID REFERENCES public.crop_scans(id) ON DELETE SET NULL,
+    photo_url       TEXT NOT NULL,
+    disease         TEXT NOT NULL,
+    severity_stage  INTEGER CHECK (severity_stage BETWEEN 1 AND 4),
+    confidence      FLOAT,
+    status          TEXT NOT NULL DEFAULT 'auto' CHECK (status IN ('auto', 'expert_reviewed')),
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.diagnoses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Diagnoses viewable by owner" ON public.diagnoses;
+CREATE POLICY "Diagnoses viewable by owner" ON public.diagnoses FOR SELECT USING (auth.uid() = owner_id);
+DROP POLICY IF EXISTS "Diagnoses insertable by owner" ON public.diagnoses;
+CREATE POLICY "Diagnoses insertable by owner" ON public.diagnoses FOR INSERT WITH CHECK (auth.uid() = owner_id);
+
+
+-- 12.2 PRESCRIPTIONS (USP 5 — Advisory & Treatment Steps)
+CREATE TABLE IF NOT EXISTS public.prescriptions (
+    id                      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    diagnosis_id            UUID NOT NULL REFERENCES public.diagnoses(id) ON DELETE CASCADE,
+    treatment_steps         JSONB NOT NULL DEFAULT '[]',
+    phi_days                INTEGER,
+    resistance_flag         BOOLEAN DEFAULT FALSE,
+    cost_estimate           FLOAT,
+    expected_recovery_pct   FLOAT,
+    recheck_date            DATE,
+    created_at              TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.prescriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Prescriptions viewable by diagnosis owner" ON public.prescriptions;
+CREATE POLICY "Prescriptions viewable by diagnosis owner" ON public.prescriptions FOR SELECT
+    USING (EXISTS (SELECT 1 FROM public.diagnoses d WHERE d.id = prescriptions.diagnosis_id AND d.owner_id = auth.uid()));
+DROP POLICY IF EXISTS "Prescriptions insertable by authenticated" ON public.prescriptions;
+CREATE POLICY "Prescriptions insertable by authenticated" ON public.prescriptions FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+
+-- 12.3 TRAP COUNTS (USP 2 — Trap Photo Counter + ETL Monitoring)
+CREATE TABLE IF NOT EXISTS public.trap_counts (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    owner_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    crop_cycle_id   UUID REFERENCES public.crop_cycles(id) ON DELETE SET NULL,
+    photo_url       TEXT NOT NULL,
+    pest_species    TEXT NOT NULL,
+    count           INTEGER NOT NULL DEFAULT 0,
+    etl_threshold   INTEGER NOT NULL,
+    action_needed   BOOLEAN NOT NULL DEFAULT FALSE,
+    resistance_flag BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.trap_counts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Trap counts viewable by owner" ON public.trap_counts;
+CREATE POLICY "Trap counts viewable by owner" ON public.trap_counts FOR SELECT USING (auth.uid() = owner_id);
+DROP POLICY IF EXISTS "Trap counts insertable by owner" ON public.trap_counts;
+CREATE POLICY "Trap counts insertable by owner" ON public.trap_counts FOR INSERT WITH CHECK (auth.uid() = owner_id);
+
+
+-- 12.4 RISK SCORES (USP 3 — Epidemiological Forecasting)
+CREATE TABLE IF NOT EXISTS public.risk_scores (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    crop_cycle_id   UUID NOT NULL REFERENCES public.crop_cycles(id) ON DELETE CASCADE,
+    score_date      DATE NOT NULL,
+    score           INTEGER NOT NULL CHECK (score BETWEEN 0 AND 100),
+    color_code      TEXT NOT NULL DEFAULT 'green' CHECK (color_code IN ('green', 'yellow', 'orange', 'red')),
+    factors         JSONB NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (crop_cycle_id, score_date)
+);
+
+ALTER TABLE public.risk_scores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Risk scores viewable by crop owner" ON public.risk_scores;
+CREATE POLICY "Risk scores viewable by crop owner" ON public.risk_scores FOR SELECT
+    USING (EXISTS (SELECT 1 FROM public.crop_cycles c WHERE c.id = risk_scores.crop_cycle_id AND c.owner_id = auth.uid()));
+
+
+-- 12.5 HOTSPOT REPORTS (USP 4 — Regional Outbreak Tracking)
+CREATE TABLE IF NOT EXISTS public.hotspot_reports (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    diagnosis_id    UUID REFERENCES public.diagnoses(id) ON DELETE SET NULL,
+    owner_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    latitude        FLOAT NOT NULL,
+    longitude       FLOAT NOT NULL,
+    disease         TEXT NOT NULL,
+    confirmed_by    TEXT NOT NULL DEFAULT 'farmer' CHECK (confirmed_by IN ('farmer', 'expert')),
+    district        TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.hotspot_reports ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Hotspots viewable by authenticated" ON public.hotspot_reports;
+CREATE POLICY "Hotspots viewable by authenticated" ON public.hotspot_reports FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Hotspots insertable by owner" ON public.hotspot_reports;
+CREATE POLICY "Hotspots insertable by owner" ON public.hotspot_reports FOR INSERT WITH CHECK (auth.uid() = owner_id);
+
+
+-- 12.6 MARKET LISTINGS (Legacy & Extended Mandi Lots)
+CREATE TABLE IF NOT EXISTS public.market_listings (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    farmer_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    crop_type       TEXT NOT NULL,
+    variety         TEXT,
+    grade           TEXT,
+    quantity        FLOAT NOT NULL,
+    unit            TEXT NOT NULL DEFAULT 'quintal',
+    asking_price    FLOAT NOT NULL,
+    quality_score   INTEGER CHECK (quality_score BETWEEN 0 AND 100),
+    latitude        FLOAT,
+    longitude       FLOAT,
+    district        TEXT,
+    harvest_date    DATE,
+    photos          JSONB DEFAULT '[]',
+    status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'withdrawn', 'expired')),
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.market_listings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Market listings viewable by all authenticated" ON public.market_listings;
+CREATE POLICY "Market listings viewable by all authenticated" ON public.market_listings FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Market listings insertable by farmer" ON public.market_listings;
+CREATE POLICY "Market listings insertable by farmer" ON public.market_listings FOR INSERT WITH CHECK (auth.uid() = farmer_id);
+
+
+-- 12.7 INPUT MERCHANTS & VERIFIED PRODUCTS (USP 9)
+CREATE TABLE IF NOT EXISTS public.sellers (
+    id                      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id                 UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    name                    TEXT NOT NULL,
+    license_no              TEXT NOT NULL,
+    cib_registration_ref    TEXT,
+    verified_status         TEXT NOT NULL DEFAULT 'pending' CHECK (verified_status IN ('pending', 'verified', 'rejected')),
+    district                TEXT,
+    phone                   TEXT,
+    created_at              TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.sellers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Sellers viewable by authenticated" ON public.sellers;
+CREATE POLICY "Sellers viewable by authenticated" ON public.sellers FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE TABLE IF NOT EXISTS public.input_products (
+    id                      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name                    TEXT NOT NULL,
+    active_ingredient       TEXT NOT NULL,
+    cib_registration_no     TEXT,
+    category                TEXT NOT NULL DEFAULT 'pesticide' CHECK (category IN ('pesticide', 'fungicide', 'herbicide', 'other')),
+    created_at              TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.input_products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Input products viewable by authenticated" ON public.input_products;
+CREATE POLICY "Input products viewable by authenticated" ON public.input_products FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE TABLE IF NOT EXISTS public.input_listings (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    seller_id       UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    product_id      UUID NOT NULL REFERENCES public.input_products(id) ON DELETE CASCADE,
+    price           FLOAT NOT NULL,
+    stock           INTEGER NOT NULL DEFAULT 0,
+    unit            TEXT NOT NULL DEFAULT 'unit',
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.input_listings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Input listings viewable by authenticated" ON public.input_listings;
+CREATE POLICY "Input listings viewable by authenticated" ON public.input_listings FOR SELECT USING (auth.uid() IS NOT NULL);
+
+
+-- 12.8 AGRONOMISTS & CONSULTATIONS (USP 10)
+CREATE TABLE IF NOT EXISTS public.agronomists (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    name            TEXT NOT NULL,
+    credentials     TEXT,
+    kvk_affiliation TEXT,
+    specialisation  TEXT,
+    rating          FLOAT DEFAULT 0.0,
+    total_sessions  INTEGER DEFAULT 0,
+    availability    BOOLEAN DEFAULT TRUE,
+    fee_per_session FLOAT DEFAULT 30.0,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.agronomists ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Agronomists viewable by authenticated" ON public.agronomists;
+CREATE POLICY "Agronomists viewable by authenticated" ON public.agronomists FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE TABLE IF NOT EXISTS public.consultation_sessions (
+    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    farmer_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    agronomist_id   UUID NOT NULL REFERENCES public.agronomists(id) ON DELETE CASCADE,
+    diagnosis_id    UUID REFERENCES public.diagnoses(id) ON DELETE SET NULL,
+    channel         TEXT NOT NULL DEFAULT 'chat' CHECK (channel IN ('chat', 'voice', 'video')),
+    fee             FLOAT NOT NULL DEFAULT 30.0,
+    status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed', 'cancelled')),
+    notes           TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.consultation_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Consultations viewable by participants" ON public.consultation_sessions;
+CREATE POLICY "Consultations viewable by participants" ON public.consultation_sessions FOR SELECT
+    USING (auth.uid() = farmer_id OR auth.uid() IN (SELECT user_id FROM public.agronomists WHERE id = consultation_sessions.agronomist_id));
+
+
+-- 12.9 ACTIVE LEARNING FEEDBACK (USP 7)
+CREATE TABLE IF NOT EXISTS public.feedback (
+    id                      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    diagnosis_id            UUID NOT NULL REFERENCES public.diagnoses(id) ON DELETE CASCADE,
+    farmer_id               UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    outcome                 TEXT NOT NULL CHECK (outcome IN ('yes', 'no', 'partial')),
+    comment                 TEXT,
+    flagged_for_retraining  BOOLEAN DEFAULT FALSE,
+    created_at              TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Feedback viewable by farmer" ON public.feedback;
+CREATE POLICY "Feedback viewable by farmer" ON public.feedback FOR SELECT USING (auth.uid() = farmer_id);
+DROP POLICY IF EXISTS "Feedback insertable by farmer" ON public.feedback;
+CREATE POLICY "Feedback insertable by farmer" ON public.feedback FOR INSERT WITH CHECK (auth.uid() = farmer_id);
+
+
+-- 12.10 INDEXES
+CREATE INDEX IF NOT EXISTS idx_diagnoses_owner ON public.diagnoses(owner_id);
+CREATE INDEX IF NOT EXISTS idx_trap_counts_cycle ON public.trap_counts(crop_cycle_id);
+CREATE INDEX IF NOT EXISTS idx_risk_scores_cycle ON public.risk_scores(crop_cycle_id, score_date);
+CREATE INDEX IF NOT EXISTS idx_hotspot_reports_geo ON public.hotspot_reports(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_market_listings_status ON public.market_listings(status, crop_type);
+CREATE INDEX IF NOT EXISTS idx_input_listings_prod ON public.input_listings(product_id);
+CREATE INDEX IF NOT EXISTS idx_agronomists_spec ON public.agronomists(specialisation);
+
+
+-- ====================================================================
+-- 13. SUCCESS CONFIRMATION
+-- ====================================================================
+SELECT 'KisanX + CropGuard complete database schema configured successfully!' AS status;
+
 

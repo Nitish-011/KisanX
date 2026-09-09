@@ -30,16 +30,18 @@ DROP POLICY IF EXISTS "Scans are viewable by farm owners" ON public.crop_scans;
 CREATE POLICY "Scans are viewable by scan owners"
     ON public.crop_scans FOR SELECT
     USING (
+        (crop_scans.owner_id IS NOT NULL AND auth.uid()::text = crop_scans.owner_id::text)
+        OR
         EXISTS (
             SELECT 1 FROM public.farms
-            WHERE farms.id = crop_scans.farm_id
-            AND farms.owner_id = auth.uid()
+            WHERE farms.id::text = crop_scans.farm_id::text
+            AND farms.owner_id::text = auth.uid()::text
         )
         OR
         EXISTS (
             SELECT 1 FROM public.crop_cycles
-            WHERE crop_cycles.id = crop_scans.crop_cycle_id
-            AND crop_cycles.owner_id = auth.uid()
+            WHERE crop_cycles.id::text = crop_scans.crop_cycle_id::text
+            AND crop_cycles.owner_id::text = auth.uid()::text
         )
     );
 
@@ -161,11 +163,11 @@ DROP POLICY IF EXISTS "Parties can view negotiations" ON public.trade_negotiatio
 CREATE POLICY "Negotiation participants can view"
     ON public.trade_negotiations FOR SELECT
     USING (
-        sender_id = auth.uid()
+        sender_id::text = auth.uid()::text
         OR EXISTS (
             SELECT 1 FROM public.marketplace_listings ml
-            WHERE ml.id = trade_negotiations.listing_id
-            AND ml.farmer_id = auth.uid()
+            WHERE ml.id::text = trade_negotiations.listing_id::text
+            AND ml.farmer_id::text = auth.uid()::text
         )
     );
 
@@ -195,14 +197,21 @@ CREATE TABLE IF NOT EXISTS public.orders (
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Buyers and sellers can view their orders" ON public.orders;
+-- Ensure listing_id is compatible with text IDs
+DO $$ BEGIN
+    ALTER TABLE public.orders ALTER COLUMN listing_id TYPE TEXT USING listing_id::text;
+EXCEPTION
+    WHEN others THEN null;
+END $$;
+
 CREATE POLICY "Buyers and sellers can view their orders"
     ON public.orders FOR SELECT
     USING (
-        buyer_id = auth.uid()
+        buyer_id::text = auth.uid()::text
         OR EXISTS (
             SELECT 1 FROM public.marketplace_listings ml
-            WHERE ml.id = orders.listing_id
-            AND ml.farmer_id = auth.uid()
+            WHERE ml.id::text = orders.listing_id::text
+            AND ml.farmer_id::text = auth.uid()::text
         )
     );
 

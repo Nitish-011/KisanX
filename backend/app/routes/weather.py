@@ -27,59 +27,7 @@ router = APIRouter(
 )
 
 
-bearer_scheme = HTTPBearer(
-    auto_error=True
-)
-
-
-def get_authenticated_user(
-    credentials: HTTPAuthorizationCredentials = Depends(
-        bearer_scheme
-    ),
-) -> Dict[str, Any]:
-
-    token = credentials.credentials
-
-    if not token:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing authentication token.",
-        )
-
-    try:
-
-        auth_response = (
-            Client(
-                settings.supabase_url,
-                settings.supabase_publishable_key,
-            )
-            .auth
-            .get_user(token)
-        )
-
-    except Exception as exc:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired authentication token.",
-        ) from exc
-
-    if (
-        not auth_response
-        or not auth_response.user
-    ):
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unable to authenticate user.",
-        )
-
-    return {
-        "id": str(
-            auth_response.user.id
-        ),
-    }
+from app.dependencies import get_authenticated_user, AuthenticatedUser
 
 
 @router.get(
@@ -88,7 +36,7 @@ def get_authenticated_user(
 )
 async def get_farm_weather_endpoint(
     farm_id: str,
-    user: Dict[str, Any] = Depends(
+    user: AuthenticatedUser = Depends(
         get_authenticated_user
     ),
     supabase: Client = Depends(

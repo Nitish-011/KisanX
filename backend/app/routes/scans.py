@@ -82,64 +82,7 @@ def extract_bearer_token(
     return token
 
 
-def get_authenticated_user(
-    authorization: Optional[str],
-):
-    """
-    Validate the Supabase access token using the
-    Supabase publishable key.
-
-    Server-side database and storage operations use
-    the secret key through get_server_supabase().
-    """
-
-    token = extract_bearer_token(
-        authorization
-    )
-
-    try:
-        from supabase import create_client
-
-        if not settings.supabase_url:
-            raise RuntimeError(
-                "SUPABASE_URL is not configured."
-            )
-
-        if not settings.supabase_publishable_key:
-            raise RuntimeError(
-                "SUPABASE_PUBLISHABLE_KEY is not configured."
-            )
-
-        auth_client = create_client(
-            settings.supabase_url,
-            settings.supabase_publishable_key,
-        )
-
-        response = auth_client.auth.get_user(
-            token
-        )
-
-        user = response.user
-
-        if user is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired access token.",
-            )
-
-        return user
-
-    except HTTPException:
-        raise
-
-    except Exception as exc:
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Authentication failed: "
-                f"{str(exc)}"
-            ),
-        )
+from app.dependencies import get_authenticated_user, AuthenticatedUser
 
 
 def resolve_scan_context(
@@ -419,6 +362,16 @@ def run_disease_prediction(
             )
         )
 
+    except (RuntimeError, FileNotFoundError) as exc:
+        if "weights not found" in str(exc).lower() or "not found" in str(exc).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=f"Disease prediction model is currently unavailable: {str(exc)}",
+            )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Disease model inference failed: {str(exc)}",
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,

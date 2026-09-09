@@ -66,10 +66,6 @@ export function AuthUI({ initialMessage, onSignIn, onSignUp, onGoogleSignIn, onD
   const [message, setMessage] = React.useState(initialMessage || "");
   const [error, setError] = React.useState("");
 
-  React.useEffect(() => {
-    if (initialMessage) setMessage(initialMessage);
-  }, [initialMessage]);
-
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);

@@ -98,52 +98,16 @@ ASSISTANT_SCHEMA = {
 }
 
 
+from app.dependencies import get_optional_authenticated_user, AuthenticatedUser
+
+
 def get_authenticated_user(
     credentials: Optional[HTTPAuthorizationCredentials],
-):
-    """
-    Validate the Supabase access token if provided.
-    Returns the user object if authenticated, else None.
-    """
+) -> Optional[AuthenticatedUser]:
+    """Validate Supabase access token using shared auth dependency."""
     if not credentials or not credentials.credentials:
         return None
-
-    token = credentials.credentials
-    if not settings.supabase_url or not settings.supabase_publishable_key:
-        return None
-
-    try:
-        auth_client = create_client(
-            settings.supabase_url,
-            settings.supabase_publishable_key,
-        )
-        response = auth_client.auth.get_user(token)
-        return response.user if response else None
-    except Exception:
-        return None
-
-    except Exception as exc:
-        print("")
-        print(
-            "========== ASSISTANT AUTH ERROR =========="
-        )
-        print(
-            "ERROR TYPE:",
-            type(exc).__name__,
-        )
-        print(
-            "ERROR:",
-            repr(exc),
-        )
-        print(
-            "=========================================="
-        )
-        print("")
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired access token.",
-        ) from exc
+    return get_optional_authenticated_user(f"Bearer {credentials.credentials}")
 
 
 def calculate_retrieval_confidence(

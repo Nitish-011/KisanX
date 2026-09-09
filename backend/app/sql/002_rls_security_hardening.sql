@@ -176,6 +176,46 @@ CREATE POLICY "Authenticated users can negotiate"
 
 
 -- ============================================================
+-- 7. ORDERS TABLE (Marketplace Orders)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_type TEXT NOT NULL DEFAULT 'crop' CHECK (order_type IN ('crop', 'input')),
+    buyer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    listing_id TEXT NOT NULL REFERENCES public.marketplace_listings(id) ON DELETE CASCADE,
+    quantity NUMERIC(10,2) NOT NULL DEFAULT 1,
+    total_price NUMERIC(12,2) NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+    payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'paid', 'refunded')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Buyers and sellers can view their orders" ON public.orders;
+CREATE POLICY "Buyers and sellers can view their orders"
+    ON public.orders FOR SELECT
+    USING (
+        buyer_id = auth.uid()
+        OR EXISTS (
+            SELECT 1 FROM public.marketplace_listings ml
+            WHERE ml.id = orders.listing_id
+            AND ml.farmer_id = auth.uid()
+        )
+    );
+
+DROP POLICY IF EXISTS "Authenticated buyers can create orders" ON public.orders;
+CREATE POLICY "Authenticated buyers can create orders"
+    ON public.orders FOR INSERT
+    WITH CHECK (auth.uid() = buyer_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_buyer ON public.orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_listing ON public.orders(listing_id);
+
+
+-- ============================================================
 -- SUCCESS
 -- ============================================================
 

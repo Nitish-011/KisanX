@@ -35,6 +35,9 @@ class AuthenticatedUser(BaseModel):
     role: Optional[str] = None
     name: Optional[str] = None
 
+    def __getitem__(self, item: str):
+        return getattr(self, item)
+
 
 # ============================================================
 # SUPABASE CLIENT HELPERS

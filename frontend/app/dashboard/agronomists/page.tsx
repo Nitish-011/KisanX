@@ -152,7 +152,7 @@ export default function AskAnAgronomistPage() {
             <GraduationCap size={40} className="text-white/30 mx-auto" />
             <h4 className="mt-3 text-sm font-bold text-white">No Specialists Found for Selected Filter</h4>
             <p className="text-xs text-white/50 mt-1">
-              Switch back to "All" to browse all verified ICAR/KVK agronomists.
+              Switch back to &quot;All&quot; to browse all verified ICAR/KVK agronomists.
             </p>
           </div>
         ) : (

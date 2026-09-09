@@ -165,7 +165,18 @@ async def create_diagnosis(
     import io
 
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    prediction = crop_disease_model.predict(image)
+    try:
+        prediction = crop_disease_model.predict(image)
+    except (RuntimeError, FileNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Disease prediction model is currently unavailable: {str(exc)}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Disease prediction failed: {str(exc)}",
+        )
 
     disease = prediction["disease"]
     confidence = float(prediction["confidence"])

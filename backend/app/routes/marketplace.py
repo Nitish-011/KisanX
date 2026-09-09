@@ -78,6 +78,79 @@ def _safe_public_listing(listing: dict) -> dict:
     return safe
 
 
+def _normalize_market_listing(rec: dict) -> dict:
+    """Normalize fields from legacy market_listings table to unified listing format."""
+    item = dict(rec)
+    if "crop_name" not in item and "crop_type" in item:
+        item["crop_name"] = (item["crop_type"] or "").title()
+    if "quality_grade" not in item and "grade" in item:
+        item["quality_grade"] = f"Grade {item['grade']}" if item["grade"] else "Grade A"
+    if "estimated_weight_quintals" not in item and "quantity" in item:
+        item["estimated_weight_quintals"] = float(item["quantity"] or 0)
+    if "price_per_quintal" not in item and "asking_price" in item:
+        item["price_per_quintal"] = int(item["asking_price"] or 0)
+    if "health_percentage" not in item and "quality_score" in item:
+        item["health_percentage"] = float(item["quality_score"] or 90.0)
+    if "total_valuation" not in item:
+        price = item.get("price_per_quintal") or 0
+        qty = item.get("estimated_weight_quintals") or 0
+        item["total_valuation"] = int(price * qty)
+    if "farm_name" not in item:
+        item["farm_name"] = f"{item.get('district', 'Regional')} Farm"
+    if "farmer_name" not in item:
+        item["farmer_name"] = "Registered Farmer"
+    if "inspector_status" not in item:
+        item["inspector_status"] = "CERTIFIED" if item.get("status") == "active" else "PENDING_INSPECTION"
+    if "farm_area_acres" not in item:
+        item["farm_area_acres"] = 2.0
+    return item
+
+
+def _fetch_all_listings(supabase, farmer_id: Optional[str] = None) -> List[dict]:
+    """Fetch listings from marketplace_listings, falling back to market_listings."""
+    try:
+        query = supabase.table("marketplace_listings").select("*")
+        if farmer_id:
+            query = query.eq("farmer_id", farmer_id)
+        res = query.order("created_at", desc=True).execute()
+        if res.data:
+            return res.data
+    except Exception:
+        pass
+
+    try:
+        query = supabase.table("market_listings").select("*")
+        if farmer_id:
+            query = query.eq("farmer_id", farmer_id)
+        res = query.order("created_at", desc=True).execute()
+        if res.data:
+            return [_normalize_market_listing(r) for r in res.data]
+    except Exception as exc:
+        print("[Marketplace] Fallback market_listings fetch error:", exc)
+
+    return []
+
+
+def _fetch_listing_by_id(supabase, listing_id: str) -> Optional[dict]:
+    """Fetch a single listing by ID from marketplace_listings or market_listings."""
+    try:
+        res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).maybe_single().execute()
+        if res.data:
+            return res.data
+    except Exception:
+        pass
+
+    try:
+        res = supabase.table("market_listings").select("*").eq("id", listing_id).maybe_single().execute()
+        if res.data:
+            return _normalize_market_listing(res.data)
+    except Exception as exc:
+        print("[Marketplace] Fallback fetch listing by id error:", exc)
+
+    return None
+
+
+
 # ============================================================
 # VIDEO / IMAGE HARVEST ANALYSIS ENDPOINT
 # ============================================================
@@ -488,7 +561,26 @@ def publish_listing(
     try:
         supabase = get_server_supabase()
         db_payload = dict(new_listing)
-        res = supabase.table("marketplace_listings").upsert(db_payload).execute()
+        try:
+            res = supabase.table("marketplace_listings").upsert(db_payload).execute()
+        except Exception:
+            # Fallback to legacy market_listings schema
+            legacy_payload = {
+                "id": new_listing["id"],
+                "farmer_id": new_listing.get("farmer_id"),
+                "crop_type": new_listing["crop_name"].lower(),
+                "variety": new_listing.get("variety", ""),
+                "grade": new_listing.get("quality_grade", "A")[:1],
+                "quantity": int(new_listing.get("estimated_weight_quintals", 1)),
+                "unit": "quintal",
+                "asking_price": new_listing.get("price_per_quintal", 1000),
+                "quality_score": int(new_listing.get("health_percentage", 90)),
+                "latitude": new_listing.get("latitude"),
+                "longitude": new_listing.get("longitude"),
+                "district": new_listing.get("district", "General"),
+                "status": "active",
+            }
+            res = supabase.table("market_listings").upsert(legacy_payload).execute()
         if not res.data:
             raise Exception("No data returned from insert")
     except Exception as exc:
@@ -519,19 +611,14 @@ def get_listings(
     combined_listings = []
     seen_ids = set()
 
-    # Query from Supabase marketplace_listings
-    try:
-        supabase = get_server_supabase()
-        db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
-        db_records = db_res.data or []
-        for rec in db_records:
-            rec_id = rec.get("id")
-            if rec_id and rec_id not in seen_ids:
-                seen_ids.add(rec_id)
-                combined_listings.append(rec)
-    except Exception as exc:
-        print("[Marketplace] Supabase fetch error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to load marketplace listings")
+    # Query from Supabase marketplace_listings or fallback to market_listings
+    supabase = get_server_supabase()
+    db_records = _fetch_all_listings(supabase)
+    for rec in db_records:
+        rec_id = rec.get("id")
+        if rec_id and rec_id not in seen_ids:
+            seen_ids.add(rec_id)
+            combined_listings.append(rec)
 
     results = []
 
@@ -590,22 +677,18 @@ def get_farmer_listings(
     seen_ids = set()
 
     # Query from Supabase
-    try:
-        supabase = get_server_supabase()
-        db_res = supabase.table("marketplace_listings").select("*").eq("farmer_id", target_id).order("created_at", desc=True).execute()
-        for rec in db_res.data or []:
-            rec_id = rec.get("id")
-            if rec_id and rec_id not in seen_ids:
-                seen_ids.add(rec_id)
-                try:
-                    neg_res = supabase.table("trade_negotiations").select("*").eq("listing_id", rec_id).order("created_at", desc=False).execute()
-                    rec["negotiations"] = neg_res.data or []
-                except Exception:
-                    rec["negotiations"] = []
-                results.append(rec)
-    except Exception as exc:
-        print("[Marketplace] Farmer listings fetch error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to load farmer listings")
+    supabase = get_server_supabase()
+    db_records = _fetch_all_listings(supabase, farmer_id=target_id)
+    for rec in db_records:
+        rec_id = rec.get("id")
+        if rec_id and rec_id not in seen_ids:
+            seen_ids.add(rec_id)
+            try:
+                neg_res = supabase.table("trade_negotiations").select("*").eq("listing_id", rec_id).order("created_at", desc=False).execute()
+                rec["negotiations"] = neg_res.data or []
+            except Exception:
+                rec["negotiations"] = []
+            results.append(rec)
 
     return {
         "success": True,
@@ -631,18 +714,14 @@ def get_inspector_queue(
     results = []
     seen_ids = set()
 
-    try:
-        supabase = get_server_supabase()
-        db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
-        for rec in db_res.data or []:
-            if rec.get("inspector_status") != "CERTIFIED":
-                rec_id = rec.get("id")
-                if rec_id and rec_id not in seen_ids:
-                    seen_ids.add(rec_id)
-                    results.append(rec)
-    except Exception as exc:
-        print("[Marketplace] Inspector queue fetch error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to load inspector queue")
+    supabase = get_server_supabase()
+    db_records = _fetch_all_listings(supabase)
+    for rec in db_records:
+        if rec.get("inspector_status") != "CERTIFIED":
+            rec_id = rec.get("id")
+            if rec_id and rec_id not in seen_ids:
+                seen_ids.add(rec_id)
+                results.append(rec)
 
     if status_filter == "PENDING":
         results = [r for r in results if r.get("inspector_status") == "PENDING_INSPECTION"]
@@ -672,13 +751,8 @@ def get_sell_shop_threads(
     target_id = user.id
 
     # Combine listings
-    try:
-        supabase = get_server_supabase()
-        db_res = supabase.table("marketplace_listings").select("*").order("created_at", desc=True).execute()
-        all_lots = db_res.data or []
-    except Exception as exc:
-        print("[Marketplace] Sell shop threads error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to load sell shop threads")
+    supabase = get_server_supabase()
+    all_lots = _fetch_all_listings(supabase)
 
     for l in all_lots:
         negs = l.get("negotiations") or []
@@ -739,13 +813,8 @@ def get_sell_shop_messages(
     Returns full chronological messages for a specific harvest listing in Sell Shop.
     Only accessible by the listing farmer or negotiation participants.
     """
-    try:
-        supabase = get_server_supabase()
-        res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).maybe_single().execute()
-        listing = res.data
-    except Exception as exc:
-        print("[Marketplace] Messages fetch error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to fetch listing")
+    supabase = get_server_supabase()
+    listing = _fetch_listing_by_id(supabase, listing_id)
 
     if not listing:
         raise HTTPException(status_code=404, detail="Crop lot not found.")
@@ -806,13 +875,8 @@ def send_negotiation_message(
     payload: NegotiationMessageRequest,
     user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
-    try:
-        supabase = get_server_supabase()
-        res = supabase.table("marketplace_listings").select("*").eq("id", payload.listing_id).maybe_single().execute()
-        listing = res.data
-    except Exception as exc:
-        print("[Marketplace] Send negotiation fetch error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to fetch listing")
+    supabase = get_server_supabase()
+    listing = _fetch_listing_by_id(supabase, payload.listing_id)
 
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
@@ -901,13 +965,8 @@ def certify_listing(
     user: AuthenticatedUser = Depends(require_role(ROLE_OFFICER)),
 ):
     """Certify or quarantine a listing. Only OFFICER role can access."""
-    try:
-        supabase = get_server_supabase()
-        res = supabase.table("marketplace_listings").select("*").eq("id", payload.listing_id).maybe_single().execute()
-        listing = res.data
-    except Exception as exc:
-        print("[Marketplace] Certify fetch error:", exc)
-        raise HTTPException(status_code=500, detail="Failed to fetch listing")
+    supabase = get_server_supabase()
+    listing = _fetch_listing_by_id(supabase, payload.listing_id)
 
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
@@ -948,14 +1007,17 @@ def certify_listing(
     # Persist update in Supabase
     try:
         supabase = get_server_supabase()
-        res = supabase.table("marketplace_listings").update({
-            "inspector_status": listing["inspector_status"],
-            "certified_by": listing["certified_by"],
-            "certification_timestamp": listing["certification_timestamp"],
-            "inspector_notes": listing["inspector_notes"],
-        }).eq("id", listing["id"]).execute()
-        if not res.data:
-            raise Exception("No data returned from update")
+        try:
+            res = supabase.table("marketplace_listings").update({
+                "inspector_status": listing["inspector_status"],
+                "certified_by": listing["certified_by"],
+                "certification_timestamp": listing["certification_timestamp"],
+                "inspector_notes": listing["inspector_notes"],
+            }).eq("id", listing["id"]).execute()
+        except Exception:
+            # Fallback to market_listings status update
+            status_val = "certified" if "CERTIFIED" in listing.get("inspector_status", "") else "quarantined"
+            res = supabase.table("market_listings").update({"status": status_val}).eq("id", listing["id"]).execute()
     except Exception as exc:
         print("[Marketplace] Certification update error:", exc)
         raise HTTPException(status_code=500, detail="Failed to persist certification status")
@@ -984,22 +1046,13 @@ def create_order(
     supabase = get_server_supabase()
 
     # Get listing price
-    listing_response = (
-        supabase
-        .table("marketplace_listings")
-        .select("price_per_quintal, status")
-        .eq("id", payload.listing_id)
-        .limit(1)
-        .execute()
-    )
+    listing = _fetch_listing_by_id(supabase, payload.listing_id)
 
-    if not listing_response.data:
+    if not listing:
         raise HTTPException(
             status_code=404,
             detail="Listing not found.",
         )
-
-    listing = listing_response.data[0]
 
     if listing.get("status") != "ACTIVE":
         raise HTTPException(

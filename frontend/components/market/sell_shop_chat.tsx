@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { KisanXAPI } from "@/lib/api";
 import {
   MessageSquare,
   Send,
@@ -54,7 +55,7 @@ interface SellShopChatProps {
   onClose?: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 
 export default function SellShopChat({
   activeRole,
@@ -141,9 +142,7 @@ export default function SellShopChat({
   async function fetchThreads() {
     try {
       setLoadingThreads(true);
-      const res = await fetch(`${API_URL}/api/marketplace/sell-shop/threads?role=${activeRole}`);
-      if (!res.ok) throw new Error("Failed to load threads");
-      const data = await res.json();
+      const data = await KisanXAPI.getSellShopThreads();
       setThreads(data.threads || []);
 
       // If active listing not set, select first
@@ -186,9 +185,7 @@ export default function SellShopChat({
   async function fetchMessages(listingId: string) {
     try {
       setLoadingMessages(true);
-      const res = await fetch(`${API_URL}/api/marketplace/sell-shop/messages?listing_id=${listingId}`);
-      if (!res.ok) throw new Error("Failed to load messages");
-      const data = await res.json();
+      const data = await KisanXAPI.getSellShopMessages(listingId);
       setMessages(data.messages || []);
       setListingDetails(data.listing || null);
     } catch (err) {
@@ -251,20 +248,12 @@ export default function SellShopChat({
       const priceVal = presetPrice !== undefined ? presetPrice : counterPrice ? parseInt(counterPrice) : null;
       const senderName = activeRole === "farmer" ? "Farmer (Verified Seller)" : "APMC Commodity Buyer";
 
-      const res = await fetch(`${API_URL}/api/marketplace/sell-shop/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listing_id: activeListingId,
-          sender_role: activeRole,
-          sender_name: senderName,
-          proposed_price: priceVal,
-          message: textToSend,
-        }),
+      const data = await KisanXAPI.sendTradeMessage({
+        listing_id: activeListingId,
+        proposed_price: priceVal,
+        message: textToSend,
       });
 
-      if (!res.ok) throw new Error("Failed to send message");
-      const data = await res.json();
       setMessages(data.all_negotiations || []);
       setChatMessage("");
       setCounterPrice("");

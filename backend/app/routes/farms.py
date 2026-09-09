@@ -2,153 +2,21 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
-from supabase import Client, create_client
+from supabase import Client
 
 from app.schemas.farms import FarmRegistrationRequest
+from app.dependencies import (
+    AuthenticatedUser,
+    get_authenticated_user,
+    get_optional_authenticated_user,
+    get_supabase,
+)
 
 
 router = APIRouter(
     prefix="/api/farms",
     tags=["Farms"],
 )
-
-
-class AuthenticatedUser(BaseModel):
-    id: str
-
-
-def get_settings():
-    from app.config import settings
-    return settings
-
-
-def get_supabase() -> Client:
-    settings = get_settings()
-
-    secret_key = settings.server_secret_key or settings.supabase_secret_key or settings.supabase_service_role_key
-
-    if not settings.supabase_url:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase URL is not configured.",
-        )
-
-    if not secret_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase server secret is not configured.",
-        )
-
-    try:
-        return create_client(
-            settings.supabase_url,
-            secret_key,
-        )
-    except Exception as exc:
-        print("========== SUPABASE CLIENT ERROR ==========")
-        print(type(exc).__name__)
-        print(repr(exc))
-        print("============================================")
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Supabase client creation failed: {str(exc)}",
-        ) from exc
-
-
-def get_authenticated_user(
-    authorization: Optional[str] = Header(None),
-) -> AuthenticatedUser:
-
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header is required.",
-        )
-
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header. Must start with 'Bearer '.",
-        )
-
-    token = authorization.replace(
-        "Bearer ",
-        "",
-        1,
-    ).strip()
-
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing access token.",
-        )
-
-    settings = get_settings()
-
-    if not settings.supabase_url:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase URL is not configured.",
-        )
-
-    if not settings.supabase_publishable_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase publishable key is not configured.",
-        )
-
-    try:
-        supabase = create_client(
-            settings.supabase_url,
-            settings.supabase_publishable_key,
-        )
-
-        response = supabase.auth.get_user(token)
-
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired access token.",
-        ) from exc
-
-    if not response or not response.user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authenticated user not found.",
-        )
-
-    return AuthenticatedUser(
-        id=response.user.id,
-    )
-
-
-def get_optional_authenticated_user(
-    authorization: Optional[str] = Header(None),
-) -> Optional[AuthenticatedUser]:
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-
-    token = authorization.replace("Bearer ", "", 1).strip()
-    if not token:
-        return None
-
-    try:
-        settings = get_settings()
-        if not settings.supabase_url or not settings.supabase_publishable_key:
-            return None
-
-        supabase = create_client(
-            settings.supabase_url,
-            settings.supabase_publishable_key,
-        )
-        response = supabase.auth.get_user(token)
-        if response and response.user:
-            return AuthenticatedUser(id=response.user.id)
-    except Exception:
-        return None
-
-    return None
 
 
 @router.post(

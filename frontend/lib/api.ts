@@ -6,6 +6,71 @@ if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_KISANX_API_URL && 
   console.warn("⚠️ [KisanX-Config] NEXT_PUBLIC_API_URL is missing. Falling back to default: http://127.0.0.1:8000");
 }
 
+/**
+ * Structured API error with HTTP status code for proper error handling.
+ */
+export class ApiError extends Error {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
+    super(detail);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+export interface ApiErrorHandlerOptions {
+  onUnauthorized?: () => void;
+  onForbidden?: (detail: string) => void;
+  onNotFound?: (detail: string) => void;
+  onValidationError?: (detail: string) => void;
+  onServerError?: (detail: string) => void;
+  fallback?: (error: Error) => void;
+}
+
+/**
+ * Maps structured API errors to user-friendly messages and executes role/status callbacks.
+ */
+export function handleApiError(
+  error: unknown,
+  options?: ApiErrorHandlerOptions
+): string {
+  if (error instanceof ApiError) {
+    switch (error.status) {
+      case 401:
+        options?.onUnauthorized?.();
+        return "Session expired or authentication required. Please log in.";
+      case 403:
+        options?.onForbidden?.(error.detail);
+        return error.detail || "You do not have permission to perform this action.";
+      case 404:
+        options?.onNotFound?.(error.detail);
+        return error.detail || "The requested resource was not found.";
+      case 422:
+        options?.onValidationError?.(error.detail);
+        return error.detail || "Invalid input provided. Please verify submitted values.";
+      case 503:
+        options?.onServerError?.(error.detail);
+        return "Service temporarily unavailable. Please try again in a few moments.";
+      default:
+        if (error.status >= 500) {
+          options?.onServerError?.(error.detail);
+          return error.detail || "A server error occurred. Please try again later.";
+        }
+        return error.detail || `Request failed with status ${error.status}`;
+    }
+  }
+
+  if (error instanceof Error) {
+    options?.fallback?.(error);
+    return error.message;
+  }
+
+  return "An unexpected error occurred.";
+}
+
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const supabase = createClient();
   const { data } = await supabase.auth.getSession();
@@ -26,7 +91,8 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || `API Request failed with status ${res.status}`);
+    const detail = errorBody.detail || `API Request failed with status ${res.status}`;
+    throw new ApiError(res.status, detail);
   }
 
   return res.json() as Promise<T>;
@@ -77,24 +143,18 @@ export const KisanXAPI = {
   // Weather
   getWeather: (lat: number, lon: number) => apiFetch<any>(`/api/weather?lat=${lat}&lon=${lon}`),
 
-  // Mandi & Marketplace
-  getMandiListings: (sort: string = "quality") => apiFetch<any>(`/api/market/listings?sort=${sort}`),
-  getMandiListing: (listingId: string) => apiFetch<any>(`/api/market/listings/${listingId}`),
-  updateMandiListing: (listingId: string, payload: any) => apiFetch<any>(`/api/market/listings/${listingId}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  createMandiListing: (payload: any) => apiFetch<any>("/api/market/listings", { method: "POST", body: JSON.stringify(payload) }),
-  createMandiOrder: (payload: any) => apiFetch<any>("/api/market/orders", { method: "POST", body: JSON.stringify(payload) }),
-  
   // Marketplace (Legacy/Extended)
   listMarketplace: (payload: any) => apiFetch<any>("/api/marketplace/list", { method: "POST", body: JSON.stringify(payload) }),
   getMarketplaceListings: (params?: string) => apiFetch<any>(`/api/marketplace/listings${params ? `?${params}` : ""}`),
   getFarmerListings: () => apiFetch<any>("/api/marketplace/farmer-listings"),
   getInspectorQueue: () => apiFetch<any>("/api/marketplace/inspector-queue"),
   getSellShopThreads: () => apiFetch<any>("/api/marketplace/sell-shop/threads"),
-  getSellShopMessages: (threadId: string) => apiFetch<any>(`/api/marketplace/sell-shop/messages?thread_id=${threadId}`),
+  getSellShopMessages: (listingId: string) => apiFetch<any>(`/api/marketplace/sell-shop/messages?listing_id=${listingId}`),
   negotiateTrade: (payload: any) => apiFetch<any>("/api/marketplace/negotiate", { method: "POST", body: JSON.stringify(payload) }),
   analyzeHarvest: (formData: FormData) => apiFetch<any>("/api/marketplace/analyze-harvest", { method: "POST", body: formData }),
   sendTradeMessage: (payload: any) => apiFetch<any>("/api/marketplace/sell-shop/send", { method: "POST", body: JSON.stringify(payload) }),
   certifyListing: (payload: any) => apiFetch<any>("/api/marketplace/certify", { method: "POST", body: JSON.stringify(payload) }),
+  createMarketplaceOrder: (payload: any) => apiFetch<any>("/api/marketplace/orders", { method: "POST", body: JSON.stringify(payload) }),
 
   // Inputs
   listInputProducts: (category?: string) => apiFetch<any>(`/api/inputs/products${category ? `?category=${category}` : ""}`),

@@ -13,15 +13,13 @@ registered and reachable.
 
 ## How the two marketplaces coexist
 
-Both of us wrote a `marketplace.py`. Rather than pick one, both are kept
-under different prefixes:
+The marketplace has been unified under `/api/marketplace`:
 
 | File | Prefix | Owner | Purpose |
 |---|---|---|---|
-| `app/routes/marketplace.py` | `/api/marketplace` | Amit | Harvest analysis, RBAC listings, Sell Shop chat, negotiate, certify, inspector queue |
-| `app/routes/market_listings.py` | `/api/market` | Nitish | Spec-shaped Mandi CRUD: listings + orders (USP 8) |
+| `app/routes/marketplace.py` | `/api/marketplace` | Unified | Harvest analysis, RBAC listings, Sell Shop chat, negotiate, certify, inspector queue, orders |
 
-They do not collide. The frontend can call either.
+All market and trade endpoints are centralized under `/api/marketplace`.
 
 ---
 
@@ -83,7 +81,7 @@ GET    /api/feedback/{diagnosis_id}
 
 Supporting services added: `risk_engine.py`, `etl_calculator.py`,
 `quality_score.py`, `dependencies.py` (shared JWT auth), and
-`app/sql/001_create_tables.sql` (19 tables covering the spec data model).
+`app/sql/dangerous_dev_reset.sql` (dev reset) / `002_rls_security_hardening.sql` (incremental RLS hardening).
 
 ---
 
@@ -130,7 +128,7 @@ pip install -r requirements.txt          # note: requirements.txt is UTF-16
 uvicorn app.main:app --reload --port 8000
 ```
 
-Then apply `backend/app/sql/001_create_tables.sql` in the Supabase SQL editor
+Then apply `backend/app/sql/002_rls_security_hardening.sql` (or `dangerous_dev_reset.sql` for fresh dev reset) in the Supabase SQL editor
 for the CropGuard tables. Open http://localhost:8000/docs to see all 43 paths.
 
 Missing model weights are non-fatal: ML endpoints return an error on call,

@@ -138,8 +138,16 @@ def ready_check():
 
 @app.get("/health")
 def health_check():
+    cotton_ready = settings.cotton_model_path_resolved.exists()
+    sugarcane_ready = settings.sugarcane_model_path.exists()
+
     return {
         "status": "ok",
         "service": "kisanx-api",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "models": {
+            "cotton": "ok" if cotton_ready else "missing",
+            "sugarcane": "ok" if sugarcane_ready else "missing",
+        },
+        "ollama_url": settings.ollama_base_url,
     }

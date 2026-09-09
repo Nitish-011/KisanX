@@ -36,7 +36,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT,
-    role TEXT DEFAULT 'FARMER',
+    role TEXT DEFAULT 'FARMER' CHECK (role IN ('FARMER', 'BUYER', 'OFFICER')),
     phone TEXT,
     organization TEXT,
     avatar_url TEXT,
@@ -55,10 +55,10 @@ DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Allow service role full access" ON public.profiles;
 DROP POLICY IF EXISTS "Allow authenticated insert" ON public.profiles;
 
--- RLS Policy: Anyone authenticated can view user profiles
-CREATE POLICY "Public profiles are viewable by everyone"
+-- RLS Policy: Authenticated users can view profiles
+CREATE POLICY "Authenticated users can view profiles"
     ON public.profiles FOR SELECT
-    USING (true);
+    USING (auth.uid() IS NOT NULL);
 
 -- RLS Policy: Authenticated users can insert their own profile
 CREATE POLICY "Users can insert their own profile"
@@ -85,6 +85,7 @@ AS $$
 DECLARE
     user_full_name TEXT;
     user_role_val TEXT;
+    allowed_signup_role TEXT;
 BEGIN
     user_full_name := COALESCE(
         new.raw_user_meta_data->>'full_name',
@@ -92,23 +93,32 @@ BEGIN
         split_part(new.email, '@', 1)
     );
 
+    -- Read requested role from signup metadata
     user_role_val := COALESCE(
         new.raw_user_meta_data->>'role',
         'FARMER'
     );
 
+    -- SECURITY: Only allow FARMER and BUYER on self-signup.
+    -- OFFICER accounts must be provisioned by an administrator.
+    IF UPPER(user_role_val) IN ('FARMER', 'BUYER') THEN
+        allowed_signup_role := UPPER(user_role_val);
+    ELSE
+        allowed_signup_role := 'FARMER';
+    END IF;
+
     INSERT INTO public.profiles (id, full_name, role, created_at, updated_at)
     VALUES (
         new.id,
         user_full_name,
-        user_role_val,
+        allowed_signup_role,
         NOW(),
         NOW()
     )
     ON CONFLICT (id) DO UPDATE
     SET
         full_name = EXCLUDED.full_name,
-        role = EXCLUDED.role,
+        -- Do NOT update role on conflict — preserve admin-assigned roles
         updated_at = NOW();
 
     RETURN NEW;
@@ -268,13 +278,25 @@ DROP POLICY IF EXISTS "Users can insert crop scans" ON public.crop_scans;
 DROP POLICY IF EXISTS "Scans are viewable by farm owners" ON public.crop_scans;
 DROP POLICY IF EXISTS "Allow scan creation" ON public.crop_scans;
 
-CREATE POLICY "Scans are viewable by farm owners"
+CREATE POLICY "Scans are viewable by scan owners"
     ON public.crop_scans FOR SELECT
-    USING (true);
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.farms
+            WHERE farms.id = crop_scans.farm_id
+            AND farms.owner_id = auth.uid()
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM public.crop_cycles
+            WHERE crop_cycles.id = crop_scans.crop_cycle_id
+            AND crop_cycles.owner_id = auth.uid()
+        )
+    );
 
-CREATE POLICY "Allow scan creation"
+CREATE POLICY "Authenticated users can create scans"
     ON public.crop_scans FOR INSERT
-    WITH CHECK (true);
+    WITH CHECK (auth.uid() IS NOT NULL);
 
 
 -- ====================================================================
@@ -397,12 +419,19 @@ CREATE POLICY "Public can view active marketplace listings"
 DROP POLICY IF EXISTS "Authenticated users can create listings" ON public.marketplace_listings;
 CREATE POLICY "Authenticated users can create listings"
     ON public.marketplace_listings FOR INSERT
-    WITH CHECK (true);
+    WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Farmers and officers can update listings" ON public.marketplace_listings;
-CREATE POLICY "Farmers and officers can update listings"
+CREATE POLICY "Listing owners and officers can update"
     ON public.marketplace_listings FOR UPDATE
-    USING (true);
+    USING (
+        farmer_id = auth.uid()
+        OR EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'OFFICER'
+        )
+    );
 
 -- TRADE NEGOTIATIONS (Encrypted Chat & Offers)
 CREATE TABLE IF NOT EXISTS public.trade_negotiations (
@@ -422,14 +451,21 @@ CREATE TABLE IF NOT EXISTS public.trade_negotiations (
 ALTER TABLE public.trade_negotiations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Parties can view negotiations" ON public.trade_negotiations;
-CREATE POLICY "Parties can view negotiations"
+CREATE POLICY "Negotiation participants can view"
     ON public.trade_negotiations FOR SELECT
-    USING (true);
+    USING (
+        sender_id = auth.uid()
+        OR EXISTS (
+            SELECT 1 FROM public.marketplace_listings ml
+            WHERE ml.id = trade_negotiations.listing_id
+            AND ml.farmer_id = auth.uid()
+        )
+    );
 
 DROP POLICY IF EXISTS "Authenticated users can propose terms" ON public.trade_negotiations;
-CREATE POLICY "Authenticated users can propose terms"
+CREATE POLICY "Authenticated users can negotiate"
     ON public.trade_negotiations FOR INSERT
-    WITH CHECK (true);
+    WITH CHECK (auth.uid() IS NOT NULL AND sender_id = auth.uid());
 
 -- PERFORMANCE INDEXES FOR TRADE & SELL SHOP
 CREATE INDEX IF NOT EXISTS idx_marketplace_farmer_id ON public.marketplace_listings(farmer_id);

@@ -99,7 +99,7 @@ def get_hotspots(
     query = (
         supabase
         .table("hotspot_reports")
-        .select("id, latitude, longitude, disease, confirmed_by, created_at")
+        .select("id, latitude, longitude, disease, confirmed_by, district, created_at")
         .gte("created_at", cutoff)
         .order("created_at", desc=True)
         .limit(limit)
@@ -107,6 +107,9 @@ def get_hotspots(
 
     if disease:
         query = query.eq("disease", disease)
+
+    if district:
+        query = query.eq("district", district)
 
     response = query.execute()
     reports = response.data or []

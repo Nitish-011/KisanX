@@ -102,6 +102,43 @@ async def create_diagnosis(
     supabase = get_supabase()
 
     # --------------------------------------------------------
+    # 0. VERIFY CROP CYCLE OWNERSHIP
+    # --------------------------------------------------------
+
+    crop_name_for_advisory = "Sugarcane"  # default fallback
+
+    if crop_cycle_id:
+        try:
+            cycle_res = (
+                supabase
+                .table("crop_cycles")
+                .select("id, owner_id, crop_name")
+                .eq("id", crop_cycle_id)
+                .limit(1)
+                .execute()
+            )
+            if not cycle_res.data:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Crop cycle not found.",
+                )
+            cycle = cycle_res.data[0]
+            if cycle.get("owner_id") != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not own this crop cycle.",
+                )
+            # Use actual crop name from the verified cycle
+            crop_name_for_advisory = cycle.get("crop_name") or "Sugarcane"
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to verify crop cycle: {str(exc)}",
+            )
+
+    # --------------------------------------------------------
     # 1. VALIDATE IMAGE
     # --------------------------------------------------------
 
@@ -204,7 +241,7 @@ async def create_diagnosis(
         advisory = await generate_crop_advisory(
             disease=disease,
             classifier_confidence=confidence,
-            crop="Sugarcane",
+            crop=crop_name_for_advisory,
             language=language,
         )
     except Exception:
@@ -227,6 +264,8 @@ async def create_diagnosis(
         "recheck_date": recheck.isoformat(),
     }
 
+    prescription = None
+    prescription_error = False
     try:
         presc_response = (
             supabase
@@ -235,8 +274,9 @@ async def create_diagnosis(
             .execute()
         )
         prescription = (presc_response.data or [{}])[0]
-    except Exception:
-        prescription = None
+    except Exception as exc:
+        print(f"[Diagnoses] Prescription insert failed: {exc}")
+        prescription_error = True
 
     # --------------------------------------------------------
     # 7. AUTO-CREATE HOTSPOT REPORT
@@ -269,8 +309,10 @@ async def create_diagnosis(
         "prediction": prediction,
         "severity_stage": severity_stage,
         "prescription": prescription,
+        "prescription_error": prescription_error,
         "advisory": advisory,
         "recheck_date": recheck.isoformat(),
+        "crop_used_for_advisory": crop_name_for_advisory,
     }
 
 

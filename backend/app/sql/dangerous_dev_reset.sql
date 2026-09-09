@@ -1,8 +1,18 @@
 -- ============================================================
--- CropGuard — Supabase SQL Migration 001 (COMPLETE RESET)
+-- KisanX / CropGuard — DESTRUCTIVE DEVELOPMENT RESET SCRIPT
+-- File: dangerous_dev_reset.sql (formerly 001_create_tables.sql)
+--
+-- ⚠️  DANGER: THIS SCRIPT DROPS ALL EXISTING TABLES ⚠️
+--
+-- Running this against a populated database WILL DELETE ALL DATA.
+-- This is a DEVELOPMENT RESET script only.
+--
+-- For production / staging, use the canonical schema or incremental migrations:
+--   1. Root canonical baseline: supabase_schema.sql
+--   2. Safe incremental RLS hardening: 002_rls_security_hardening.sql
+--
 -- Drops all existing tables and recreates both the original
 -- KisanX core tables AND the new CropGuard USP tables.
--- Run this once in the Supabase SQL Editor for a fresh DB.
 -- ============================================================
 
 -- ============================================================
@@ -276,7 +286,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     order_type      TEXT NOT NULL CHECK (order_type IN ('crop', 'input')),
     buyer_id        UUID NOT NULL REFERENCES auth.users(id),
-    listing_id      UUID NOT NULL,
+    listing_id      TEXT NOT NULL,
     quantity        FLOAT NOT NULL DEFAULT 1,
     total_price     FLOAT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'pending'

@@ -20,7 +20,7 @@ Transformed the backend from the base KisanX structure to fully support the Crop
 ### New Files Added (If you need to revert, delete these)
 - **Config**: `backend/.env`
 - **Dependencies**: `backend/app/dependencies.py`
-- **Database**: `backend/app/sql/001_create_tables.sql`
+- **Database**: `backend/app/sql/dangerous_dev_reset.sql` & `backend/app/sql/002_rls_security_hardening.sql`
 - **Schemas**: 
   - `backend/app/schemas/__init__.py`
   - `backend/app/schemas/diagnosis.py`
@@ -46,8 +46,10 @@ Transformed the backend from the base KisanX structure to fully support the Crop
   - `backend/app/routes/feedback.py`
 
 ### Database Changes
-- Created `001_create_tables.sql` which **DROPS ALL TABLES** (both the new ones and the existing `farms`, `plots`, `crop_cycles`, `crop_scans`, `farm_context_entries`, `assistant_messages`) and recreates them from scratch with all the new relationships.
-- **How to Revert**: If you run the SQL script and want to go back, you will need to re-run your original table creation script (if you had one). Because the script uses `DROP TABLE IF EXISTS ... CASCADE;`, it is a destructive operation for any existing data in your Supabase project.
+- Renamed dev reset script to `dangerous_dev_reset.sql` to clearly indicate that it **DROPS ALL TABLES** and is only intended for local scratch dev environments.
+- Created `002_rls_security_hardening.sql` for safe, incremental RLS hardening on production/staging databases without dropping tables or losing data.
+- Hardened `supabase_schema.sql` at root as canonical baseline.
+- **How to Revert**: If you run `dangerous_dev_reset.sql` and want to go back, you will need to re-run your original table creation script. Because the script uses `DROP TABLE IF EXISTS ... CASCADE;`, it is a destructive operation for any existing data in your Supabase project. Use `002_rls_security_hardening.sql` for safe updates.
 
 ---
 

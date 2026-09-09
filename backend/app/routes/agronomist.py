@@ -214,11 +214,11 @@ def update_consultation(
 
     supabase = get_supabase()
 
-    # Verify session exists
+    # Verify session exists and load current state
     existing = (
         supabase
         .table("consultation_sessions")
-        .select("id, farmer_id, agronomist_id")
+        .select("id, farmer_id, agronomist_id, status, agronomists(user_id)")
         .eq("id", session_id)
         .limit(1)
         .execute()
@@ -229,6 +229,20 @@ def update_consultation(
             status_code=404,
             detail="Consultation session not found.",
         )
+
+    session = existing.data[0]
+
+    # Authorization: user must be the farmer or the agronomist
+    agronomist_data = session.get("agronomists") or {}
+    agronomist_user_id = agronomist_data.get("user_id")
+
+    if session.get("farmer_id") != user.id and agronomist_user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this consultation.",
+        )
+
+    old_status = session.get("status", "")
 
     update_data = {"status": payload.status}
     if payload.notes is not None:
@@ -248,10 +262,10 @@ def update_consultation(
             detail=f"Update failed: {str(exc)}",
         )
 
-    # If completed, increment agronomist's session count
-    if payload.status == "completed":
+    # If transitioning TO completed (and was NOT already completed),
+    # increment agronomist's session count exactly once
+    if payload.status == "completed" and old_status != "completed":
         try:
-            session = existing.data[0]
             agro_id = session.get("agronomist_id")
             agro_response = (
                 supabase

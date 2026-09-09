@@ -472,8 +472,6 @@ export default function MarketplacePage() {
       setCertifyingId(listingId);
       const data = await KisanXAPI.certifyListing({
         listing_id: listingId,
-        officer_name: "Dr. V. K. Deshmukh",
-        officer_id: "FSSAI-AGRI-884",
         action: action,
         notes: inspectNotes.trim() || undefined,
       });

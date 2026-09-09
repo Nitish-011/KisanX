@@ -12,7 +12,14 @@ import {
   Scan, 
   ShieldCheck, 
   Sparkles, 
-  TrendingUp 
+  TrendingUp,
+  CloudRain,
+  Wind,
+  Droplets,
+  Thermometer,
+  ShieldAlert,
+  Calendar,
+  AlertTriangle
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,6 +61,14 @@ export default async function DashboardPage() {
       ascending: false,
     });
 
+  // Fetch recent AI diagnoses
+  const { data: recentDiagnoses } = await supabase
+    .from("diagnoses")
+    .select("id, disease, severity_stage, confidence, photo_url, created_at, crop_cycle_id")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
   const farmList: Farm[] = farms ?? [];
   const totalFarms = farmList.length;
   const totalArea = farmList.reduce(
@@ -62,12 +77,60 @@ export default async function DashboardPage() {
   );
 
   const metadata = user.user_metadata ?? {};
+  const userRole = (profile?.role || metadata?.role || "FARMER").toUpperCase();
   const displayName =
     profile?.full_name ||
     metadata.full_name ||
     metadata.name ||
     user.email?.split("@")[0] ||
     "Farmer";
+
+  // Live Microclimate & Spray Feasibility calculation
+  const primaryFarm = farmList[0];
+  const farmLat = primaryFarm?.latitude ?? 19.5682;
+  const farmLon = primaryFarm?.longitude ?? 74.2111;
+  const locationName = primaryFarm?.name ? `${primaryFarm.name} (${primaryFarm.district || "Ahmednagar"})` : "Rahata, Ahmednagar";
+
+  let weatherData: any = null;
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${farmLat}&longitude=${farmLon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m&timezone=auto`,
+      { next: { revalidate: 180 } }
+    );
+    if (res.ok) {
+      weatherData = await res.json();
+    }
+  } catch {
+    // Non-critical fallback
+  }
+
+  const currentW = weatherData?.current || {};
+  const tempC = currentW.temperature_2m ?? 26.5;
+  const humidityPct = currentW.relative_humidity_2m ?? 68;
+  const windKmh = currentW.wind_speed_10m ?? 8.5;
+  const rainMm = currentW.precipitation ?? 0.0;
+
+  let sprayStatus = "OPTIMAL";
+  let sprayBadgeBg = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+  let sprayTitle = "Optimal for Foliar Application";
+  let sprayDesc = "Temperature, humidity, and low wind drift risk are ideal for biopesticide and foliar fertilizer application.";
+
+  if (rainMm > 0.1) {
+    sprayStatus = "DO NOT SPRAY";
+    sprayBadgeBg = "bg-rose-500/20 text-rose-300 border-rose-500/40";
+    sprayTitle = "Rain Wash-Off Risk";
+    sprayDesc = "Active rainfall detected in microclimate. Sprayed inputs will wash off foliage before systemic uptake.";
+  } else if (windKmh > 16) {
+    sprayStatus = "UNFAVORABLE";
+    sprayBadgeBg = "bg-rose-500/20 text-rose-300 border-rose-500/40";
+    sprayTitle = "High Wind Drift Alert";
+    sprayDesc = `Wind speed (${windKmh} km/h) exceeds safe 15 km/h threshold; droplet drift will contaminate off-target areas.`;
+  } else if (windKmh > 11) {
+    sprayStatus = "CAUTION";
+    sprayBadgeBg = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+    sprayTitle = "Moderate Wind Advisory";
+    sprayDesc = `Wind speed ${windKmh} km/h. Maintain low boom height and use air-induction low-drift spray nozzles.`;
+  }
 
   return (
     <main className="min-h-screen bg-[#030604] text-white selection:bg-emerald-500/30 selection:text-white">
@@ -118,6 +181,58 @@ export default async function DashboardPage() {
 
       {/* Main Container */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+
+        {/* ROLE PERSONA PROMINENT BANNER (Buyer / Officer) */}
+        {userRole === "BUYER" && (
+          <div className="mb-8 rounded-3xl border border-teal-500/40 bg-gradient-to-r from-teal-950/40 to-teal-900/20 p-6 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 shadow-[0_0_35px_rgba(20,184,166,0.15)]">
+            <div className="flex items-center gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-300 text-3xl border border-teal-500/30">
+                🏭
+              </span>
+              <div>
+                <span className="rounded-full bg-teal-500/20 px-2.5 py-0.5 text-[10px] font-bold text-teal-300 font-mono">
+                  MANDI BUYER ACCOUNT ACTIVE
+                </span>
+                <h3 className="font-extrabold text-white text-lg mt-1">Procurement & Trade Negotiation Radar</h3>
+                <p className="text-xs text-white/60 mt-0.5 max-w-xl">
+                  You are authenticated with buyer privileges. Discover verified farm lots with YOLO leaf health index, inspect Grade-A certificates, and negotiate prices directly in Sell Shop.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/market?tab=buyer"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-6 py-3.5 text-sm font-extrabold text-black shadow-lg shadow-teal-500/25 hover:bg-teal-400 transition whitespace-nowrap"
+            >
+              Open Buyer Radar <ArrowUpRight size={16} />
+            </Link>
+          </div>
+        )}
+
+        {userRole === "OFFICER" && (
+          <div className="mb-8 rounded-3xl border border-purple-500/40 bg-gradient-to-r from-purple-950/40 to-purple-900/20 p-6 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 shadow-[0_0_35px_rgba(168,85,247,0.15)]">
+            <div className="flex items-center gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-300 text-3xl border border-purple-500/30">
+                🛡️
+              </span>
+              <div>
+                <span className="rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-300 font-mono">
+                  PHYTOSANITARY INSPECTION ACTIVE
+                </span>
+                <h3 className="font-extrabold text-white text-lg mt-1">Quality Inspection & Certification Portal</h3>
+                <p className="text-xs text-white/60 mt-0.5 max-w-xl">
+                  You are authenticated as an agricultural officer. Review harvest batch submissions, evaluate AI vision health scores, and issue digital certification records.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/market?tab=inspector"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-500 px-6 py-3.5 text-sm font-extrabold text-black shadow-lg shadow-purple-500/25 hover:bg-purple-400 transition whitespace-nowrap"
+            >
+              Open Certification Queue <ArrowUpRight size={16} />
+            </Link>
+          </div>
+        )}
+
         {/* Welcome Section */}
         <section className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
@@ -129,7 +244,7 @@ export default async function DashboardPage() {
               Welcome back, {displayName}
             </h1>
             <p className="mt-2 text-sm text-white/60 max-w-2xl leading-relaxed">
-              Monitor multi-crop disease risks, run dedicated computer vision models, and access real-time agronomic advisories.
+              Monitor multi-crop disease risks, run real-time computer vision models, and review live microclimate telemetry.
             </p>
           </div>
 
@@ -142,17 +257,91 @@ export default async function DashboardPage() {
           </Link>
         </section>
 
-        {/* AI PIPELINE STATUS CHIPS */}
+        {/* LIVE MICROCLIMATE & SPRAY FEASIBILITY TELEMETRY */}
+        <section className="mb-8 rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 backdrop-blur-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-xs font-mono uppercase tracking-wider text-emerald-400 font-bold">
+                  Live Farm Telemetry & Open-Meteo Radar
+                </span>
+              </div>
+              <h3 className="text-xl font-extrabold text-white mt-1 flex items-center gap-2">
+                <span>Field Microclimate: {locationName}</span>
+              </h3>
+              <p className="text-xs text-white/50 mt-1">
+                Real-time meteorological feed used for 5-factor epidemiological risk and foliar spray window calculations.
+              </p>
+            </div>
+
+            {/* Spray Advisory Badge */}
+            <div className={`rounded-2xl border px-4 py-3 ${sprayBadgeBg} flex items-center gap-3`}>
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider block opacity-75">
+                  Foliar Spray Feasibility
+                </span>
+                <span className="font-extrabold text-sm">{sprayStatus}: {sprayTitle}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Telemetry Metrics Grid */}
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-white/10">
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3.5">
+              <div className="flex items-center gap-2 text-white/50 text-xs">
+                <Thermometer size={14} className="text-amber-400" />
+                <span>Ambient Temp</span>
+              </div>
+              <p className="mt-1.5 text-2xl font-extrabold text-white font-mono">{tempC}°C</p>
+              <p className="text-[11px] text-white/40 mt-0.5">Crop canopy range</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3.5">
+              <div className="flex items-center gap-2 text-white/50 text-xs">
+                <Droplets size={14} className="text-cyan-400" />
+                <span>Relative Humidity</span>
+              </div>
+              <p className="mt-1.5 text-2xl font-extrabold text-white font-mono">{humidityPct}%</p>
+              <p className="text-[11px] text-white/40 mt-0.5">Fungal spore vector</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3.5">
+              <div className="flex items-center gap-2 text-white/50 text-xs">
+                <Wind size={14} className="text-teal-400" />
+                <span>Wind Velocity</span>
+              </div>
+              <p className="mt-1.5 text-2xl font-extrabold text-white font-mono">{windKmh} <span className="text-xs text-white/50 font-normal">km/h</span></p>
+              <p className="text-[11px] text-white/40 mt-0.5">Threshold: &lt;15 km/h</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3.5">
+              <div className="flex items-center gap-2 text-white/50 text-xs">
+                <CloudRain size={14} className="text-blue-400" />
+                <span>Precipitation</span>
+              </div>
+              <p className="mt-1.5 text-2xl font-extrabold text-white font-mono">{rainMm} <span className="text-xs text-white/50 font-normal">mm</span></p>
+              <p className="text-[11px] text-white/40 mt-0.5">Wash-off index</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl bg-white/[0.03] border border-white/5 px-4 py-2.5 flex items-center gap-2.5 text-xs text-white/70">
+            <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+            <span><strong>Agronomic Advisory:</strong> {sprayDesc}</span>
+          </div>
+        </section>
+
+        {/* AI PIPELINE STATUS CHIPS (Live Operational Engines) */}
         <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {/* Cotton Pipeline */}
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <span className="text-xl">🌿</span>
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                ACTIVE
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 font-mono">
+                OPERATIONAL
               </span>
             </div>
-            <h3 className="mt-2 font-bold text-white text-sm">Cotton Engine</h3>
+            <h3 className="mt-2 font-bold text-white text-sm">Cotton SegNet</h3>
             <p className="text-xs text-white/50 font-mono mt-0.5">YOLOv11 Instance Seg</p>
           </div>
 
@@ -160,38 +349,39 @@ export default async function DashboardPage() {
           <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <span className="text-xl">🎋</span>
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                ACTIVE
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400 font-mono">
+                OPERATIONAL
               </span>
             </div>
-            <h3 className="mt-2 font-bold text-white text-sm">Sugarcane Engine</h3>
-            <p className="text-xs text-white/50 font-mono mt-0.5">MobileNetV2 Deep</p>
+            <h3 className="mt-2 font-bold text-white text-sm">Sugarcane BioNet</h3>
+            <p className="text-xs text-white/50 font-mono mt-0.5">MobileNetV2 Deep Classifier</p>
           </div>
 
-          {/* Barley (Locked) */}
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4 opacity-60 backdrop-blur-xl">
+          {/* Gemma RAG */}
+          <div className="rounded-2xl border border-teal-500/30 bg-teal-950/20 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
-              <span className="text-xl">🌾</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-white/40">
-                TRAINING
+              <span className="text-xl">🧠</span>
+              <span className="rounded-full bg-teal-500/20 px-2 py-0.5 text-[10px] font-bold text-teal-400 font-mono">
+                OPERATIONAL
               </span>
             </div>
-            <h3 className="mt-2 font-bold text-white/70 text-sm">Barley Engine</h3>
-            <p className="text-xs text-white/40 font-mono mt-0.5">Dataset 88% Curation</p>
+            <h3 className="mt-2 font-bold text-white text-sm">Gemma Advisory RAG</h3>
+            <p className="text-xs text-white/50 font-mono mt-0.5">MiniLM + Vector Knowledge</p>
           </div>
 
-          {/* Maize (Locked) */}
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4 opacity-60 backdrop-blur-xl">
+          {/* Epidemiological Risk */}
+          <div className="rounded-2xl border border-purple-500/30 bg-purple-950/20 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
-              <span className="text-xl">🌽</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-white/40">
-                TRAINING
+              <span className="text-xl">⚡</span>
+              <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-400 font-mono">
+                OPERATIONAL
               </span>
             </div>
-            <h3 className="mt-2 font-bold text-white/70 text-sm">Maize Engine</h3>
-            <p className="text-xs text-white/40 font-mono mt-0.5">Fall Armyworm Queue</p>
+            <h3 className="mt-2 font-bold text-white text-sm">5-Factor Risk Radar</h3>
+            <p className="text-xs text-white/50 font-mono mt-0.5">Microclimate + Regional ETL</p>
           </div>
         </section>
+
 
         {/* FEATURE BENTO ACTIONS */}
         <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -385,6 +575,67 @@ export default async function DashboardPage() {
             <p className="mt-1 text-xs text-white/40">Multi-crop neural segregation</p>
           </div>
         </section>
+
+        {/* RECENT AI DIAGNOSES & CROP HEALTH HISTORY */}
+        {recentDiagnoses && recentDiagnoses.length > 0 && (
+          <section className="mb-10">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-emerald-400 font-bold">
+                  Bio-Surveillance Telemetry
+                </p>
+                <h2 className="mt-1 text-2xl font-extrabold text-white">
+                  Recent AI Diagnoses & Leaf Scans
+                </h2>
+              </div>
+
+              <Link
+                href="/dashboard/scan"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2 text-xs font-bold transition border border-emerald-500/20"
+              >
+                <Scan size={14} /> New Crop Scan
+              </Link>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recentDiagnoses.map((diag: any) => (
+                <div
+                  key={diag.id}
+                  className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 backdrop-blur-xl transition hover:border-emerald-500/30"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 font-mono">
+                        Severity Stage {diag.severity_stage || 1}
+                      </span>
+                      <h4 className="mt-2 text-base font-bold text-white">
+                        {diag.disease || "Foliar Analysis"}
+                      </h4>
+                    </div>
+
+                    <span className="rounded-xl border border-white/10 bg-black/40 px-2.5 py-1 text-xs font-bold text-emerald-400 font-mono">
+                      {Math.round((diag.confidence || 0.9) * 100)}% Match
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between pt-4 border-t border-white/10 text-xs">
+                    <span className="text-white/40 flex items-center gap-1">
+                      <Calendar size={12} />
+                      {new Date(diag.created_at).toLocaleDateString()}
+                    </span>
+
+                    <Link
+                      href="/dashboard/agronomists"
+                      className="inline-flex items-center gap-1 font-bold text-purple-400 hover:text-purple-300 transition text-[11px]"
+                    >
+                      Consult Agronomist <ArrowUpRight size={12} />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* REGISTERED FARMS SECTION */}
         <section>

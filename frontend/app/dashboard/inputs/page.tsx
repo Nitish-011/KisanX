@@ -20,11 +20,10 @@ import {
 import { KisanXAPI } from "@/lib/api";
 
 const CATEGORIES = [
-  { id: "all", name: "All Inputs" },
+  { id: "all", name: "All Verified Inputs" },
   { id: "pesticide", name: "Bio & Chemical Pesticides" },
-  { id: "fertilizer", name: "Nutrients & Fertilizers" },
-  { id: "seed", name: "Certified Hybrid Seeds" },
-  { id: "bio_control", name: "Biological Control Agents" },
+  { id: "fungicide", name: "Bio-Fungicides (Trichoderma)" },
+  { id: "other", name: "Nutrients, Bio-NPK & Hybrid Seeds" },
 ];
 
 export default function VerifiedInputsMarketplacePage() {

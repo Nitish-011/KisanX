@@ -10,7 +10,8 @@ const links = [
   { label: "Intelligence", href: "#intelligence" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Crop Health", href: "#crop-health" },
-  { label: "Marketplace", href: "/marketplace" },
+  { label: "Marketplace", href: "/market" },
+  { label: "Buyer Radar", href: "/market?tab=buyer" },
 ];
 
 export function Navbar() {

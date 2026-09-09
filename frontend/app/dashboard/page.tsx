@@ -95,9 +95,13 @@ export default async function DashboardPage() {
               AI Engines Online
             </div>
 
-            <span className="hidden text-xs text-white/50 md:block font-mono">
-              {user.email}
-            </span>
+            <Link
+              href="/market?tab=buyer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-xs font-bold text-teal-300 transition hover:bg-teal-500/20"
+            >
+              <span>🏭</span>
+              <span>Buyer Radar</span>
+            </Link>
 
             <form action="/auth/logout" method="post">
               <button
@@ -269,29 +273,29 @@ export default async function DashboardPage() {
             </div>
           </Link>
 
-          {/* 4. MARKET & MANDI */}
+          {/* 4. BUYER & MANDI RADAR */}
           <Link
-            href="/marketplace"
-            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 transition-all duration-300 hover:border-blue-500/50 hover:bg-blue-950/20 hover:shadow-[0_0_35px_rgba(59,130,246,0.15)]"
+            href="/market?tab=buyer"
+            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 transition-all duration-300 hover:border-teal-500/50 hover:bg-teal-950/20 hover:shadow-[0_0_35px_rgba(20,184,166,0.15)]"
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs uppercase tracking-wider text-blue-400 font-bold">
-                  Commerce
+                <p className="text-xs uppercase tracking-wider text-teal-400 font-bold">
+                  Commerce & Mandi
                 </p>
                 <h3 className="mt-2 text-xl font-extrabold text-white">
-                  Mandi Marketplace
+                  Buyer Procurement Radar
                 </h3>
                 <p className="mt-1.5 text-xs text-white/55 leading-relaxed">
-                  Explore verified crop buyers, real-time APMC mandi rates, and contracts.
+                  Discover verified lots on GPS radar, view YOLO health index, and send direct price bids.
                 </p>
               </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/30 group-hover:scale-110 transition">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30 group-hover:scale-110 transition">
                 <TrendingUp size={20} />
               </div>
             </div>
-            <div className="mt-6 flex items-center gap-1 text-xs font-semibold text-blue-400 group-hover:translate-x-1 transition">
-              Explore Mandi <ArrowUpRight size={14} />
+            <div className="mt-6 flex items-center gap-1 text-xs font-semibold text-teal-400 group-hover:translate-x-1 transition">
+              Open Buyer Radar <ArrowUpRight size={14} />
             </div>
           </Link>
         </section>

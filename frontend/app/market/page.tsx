@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -69,12 +70,26 @@ interface Listing {
   negotiations?: Negotiation[];
 }
 
-export default function MarketplacePage() {
+function MarketplaceContent() {
+  const searchParams = useSearchParams();
+
   // Multilingual State: "en" | "hi" | "mr"
   const [lang, setLang] = useState<"en" | "hi" | "mr">("en");
 
   // Role: "farmer" | "buyer" | "inspector"
   const [activeRole, setActiveRole] = useState<"farmer" | "buyer" | "inspector">("farmer");
+
+  // Sync activeRole with URL query param ?tab=
+  useEffect(() => {
+    const tab = searchParams.get("tab")?.toLowerCase();
+    if (tab === "buyer") {
+      setActiveRole("buyer");
+    } else if (tab === "inspector" || tab === "officer") {
+      setActiveRole("inspector");
+    } else if (tab === "farmer") {
+      setActiveRole("farmer");
+    }
+  }, [searchParams]);
 
   // Isolated Listings Collections
   const [farmerListings, setFarmerListings] = useState<Listing[]>([]);
@@ -521,9 +536,51 @@ export default function MarketplacePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* STRICT ROLE PORTAL SWITCHER PILLS REMOVED */}
-            {/* User role is now strictly determined by the Supabase session */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* ROLE PORTAL SWITCHER PILLS (Farmer, Buyer Procurement, Inspector) */}
+            <div className="flex items-center rounded-2xl border border-white/15 bg-black/60 p-1 backdrop-blur-xl text-xs font-bold shadow-inner">
+              <button
+                type="button"
+                onClick={() => setActiveRole("farmer")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition ${
+                  activeRole === "farmer"
+                    ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/25 font-extrabold"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <span>🌾</span>
+                <span className="hidden sm:inline">{t.roleFarmer[lang]}</span>
+                <span className="sm:hidden">Farmer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveRole("buyer")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition ${
+                  activeRole === "buyer"
+                    ? "bg-teal-400 text-black shadow-lg shadow-teal-400/25 font-extrabold"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <span>🏭</span>
+                <span className="hidden sm:inline">{t.roleBuyer[lang]}</span>
+                <span className="sm:hidden">Buyer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveRole("inspector")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition ${
+                  activeRole === "inspector"
+                    ? "bg-amber-400 text-black shadow-lg shadow-amber-400/25 font-extrabold"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <span>🛡️</span>
+                <span className="hidden sm:inline">{t.roleInspector[lang]}</span>
+                <span className="sm:hidden">Officer</span>
+              </button>
+            </div>
 
             {/* INSTANT MULTILINGUAL SELECTOR (EN, HI, MR) */}
             <div className="flex items-center rounded-2xl border border-white/15 bg-black/60 p-1 backdrop-blur-xl text-xs font-bold">
@@ -1139,5 +1196,19 @@ export default function MarketplacePage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function MarketplacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#020503] flex items-center justify-center text-emerald-400 font-mono text-sm">
+          Loading KisanX Mandi...
+        </div>
+      }
+    >
+      <MarketplaceContent />
+    </Suspense>
   );
 }

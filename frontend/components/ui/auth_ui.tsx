@@ -281,73 +281,71 @@ export function AuthUI({ initialMessage, onSignIn, onSignUp, onGoogleSignIn, onD
                 </button>
               </div>
 
-              {/* 1-CLICK INSTANT EVALUATION / DEMO PORTAL (Active in Sign In Mode) */}
-              {mode === "signin" && (
-                <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-black/50 to-emerald-900/20 p-4 shadow-inner backdrop-blur-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles size={13} className="text-emerald-400 animate-pulse" />
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
-                        1-Click Instant Evaluation
-                      </span>
-                    </div>
-                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-mono font-semibold text-emerald-300">
-                      Zero Friction
+              {/* 1-CLICK INSTANT EVALUATION / DEMO PORTAL */}
+              <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-black/50 to-emerald-900/20 p-4 shadow-inner backdrop-blur-md">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-emerald-400 animate-pulse" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
+                      1-Click Instant Demo Login
                     </span>
                   </div>
-
-                  <p className="text-[11px] text-white/65 mb-3 leading-snug">
-                    Bypass OAuth & verification. Click any persona to enter their live authenticated portal:
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    {/* Farmer */}
-                    <button
-                      type="button"
-                      onClick={() => handleDemoClick("FARMER")}
-                      disabled={loading || googleLoading || !!demoLoadingRole}
-                      className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
-                    >
-                      <span className="text-xl transition group-hover:scale-110">🚜</span>
-                      <span className="mt-1 text-[11px] font-bold text-white group-hover:text-emerald-300">Farmer</span>
-                      <span className="text-[9px] text-emerald-400 font-mono">Rameshwar</span>
-                      {demoLoadingRole === "FARMER" && (
-                        <Loader2 size={12} className="mt-1.5 animate-spin text-emerald-400" />
-                      )}
-                    </button>
-
-                    {/* Buyer */}
-                    <button
-                      type="button"
-                      onClick={() => handleDemoClick("BUYER")}
-                      disabled={loading || googleLoading || !!demoLoadingRole}
-                      className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-teal-500/50 hover:bg-teal-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
-                    >
-                      <span className="text-xl transition group-hover:scale-110">🏭</span>
-                      <span className="mt-1 text-[11px] font-bold text-white group-hover:text-teal-300">Buyer</span>
-                      <span className="text-[9px] text-teal-400 font-mono">Agro Mills</span>
-                      {demoLoadingRole === "BUYER" && (
-                        <Loader2 size={12} className="mt-1.5 animate-spin text-teal-400" />
-                      )}
-                    </button>
-
-                    {/* Officer */}
-                    <button
-                      type="button"
-                      onClick={() => handleDemoClick("OFFICER")}
-                      disabled={loading || googleLoading || !!demoLoadingRole}
-                      className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-amber-500/50 hover:bg-amber-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
-                    >
-                      <span className="text-xl transition group-hover:scale-110">🛡️</span>
-                      <span className="mt-1 text-[11px] font-bold text-white group-hover:text-amber-300">Inspector</span>
-                      <span className="text-[9px] text-amber-400 font-mono">FSSAI Pass</span>
-                      {demoLoadingRole === "OFFICER" && (
-                        <Loader2 size={12} className="mt-1.5 animate-spin text-amber-400" />
-                      )}
-                    </button>
-                  </div>
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-mono font-semibold text-emerald-300">
+                    Direct Access
+                  </span>
                 </div>
-              )}
+
+                <p className="text-[11px] text-white/65 mb-3 leading-snug">
+                  Explore without signing up. Click any persona to enter their live authenticated portal:
+                </p>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Farmer */}
+                  <button
+                    type="button"
+                    onClick={() => handleDemoClick("FARMER")}
+                    disabled={loading || googleLoading || !!demoLoadingRole}
+                    className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
+                  >
+                    <span className="text-xl transition group-hover:scale-110">🚜</span>
+                    <span className="mt-1 text-[11px] font-bold text-white group-hover:text-emerald-300">Farmer</span>
+                    <span className="text-[9px] text-emerald-400 font-mono">Rameshwar</span>
+                    {demoLoadingRole === "FARMER" && (
+                      <Loader2 size={12} className="mt-1.5 animate-spin text-emerald-400" />
+                    )}
+                  </button>
+
+                  {/* Buyer */}
+                  <button
+                    type="button"
+                    onClick={() => handleDemoClick("BUYER")}
+                    disabled={loading || googleLoading || !!demoLoadingRole}
+                    className="group flex flex-col items-center justify-center rounded-xl border border-teal-500/40 bg-teal-950/30 p-2.5 transition hover:border-teal-500/70 hover:bg-teal-500/25 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 shadow-sm"
+                  >
+                    <span className="text-xl transition group-hover:scale-110">🏭</span>
+                    <span className="mt-1 text-[11px] font-bold text-teal-300 group-hover:text-white">Buyer Radar</span>
+                    <span className="text-[9px] text-teal-400 font-mono font-bold">Agro Mills</span>
+                    {demoLoadingRole === "BUYER" && (
+                      <Loader2 size={12} className="mt-1.5 animate-spin text-teal-400" />
+                    )}
+                  </button>
+
+                  {/* Officer */}
+                  <button
+                    type="button"
+                    onClick={() => handleDemoClick("OFFICER")}
+                    disabled={loading || googleLoading || !!demoLoadingRole}
+                    className="group flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2.5 transition hover:border-amber-500/50 hover:bg-amber-500/15 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
+                  >
+                    <span className="text-xl transition group-hover:scale-110">🛡️</span>
+                    <span className="mt-1 text-[11px] font-bold text-white group-hover:text-amber-300">Inspector</span>
+                    <span className="text-[9px] text-amber-400 font-mono">FSSAI Pass</span>
+                    {demoLoadingRole === "OFFICER" && (
+                      <Loader2 size={12} className="mt-1.5 animate-spin text-amber-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
 
               {/* Google OAuth Button */}
               <button
@@ -523,6 +521,15 @@ export function AuthUI({ initialMessage, onSignIn, onSignUp, onGoogleSignIn, onD
                         );
                       })}
                     </div>
+
+                    {role === "BUYER" && (
+                      <div className="mt-2.5 rounded-xl border border-teal-500/30 bg-teal-950/20 p-3 text-xs text-teal-200 flex items-start gap-2.5 animate-in fade-in">
+                        <span className="text-base shrink-0">🏭</span>
+                        <p className="leading-snug text-[11px]">
+                          <strong>Buyer Portal:</strong> You will be registered for the <strong>GPS Procurement Radar</strong> to discover verified crop lots, inspect computer-vision health metrics, and submit price counter-offers directly to farmers.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -562,7 +569,11 @@ export function AuthUI({ initialMessage, onSignIn, onSignUp, onGoogleSignIn, onD
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-1.5">
-                      {mode === "signin" ? "Enter KisanX Workspace" : "Create Grower Account"}
+                      {mode === "signin"
+                        ? "Enter KisanX Workspace"
+                        : role === "BUYER"
+                        ? "Create Buyer / Mill Account"
+                        : "Create Grower Account"}
                       <ArrowRight size={14} />
                     </span>
                   )}
